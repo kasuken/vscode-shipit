@@ -109,6 +109,8 @@ export async function buildAgentPromptAsync(taskDescription: string, requirement
     }
 
     const parts: string[] = [
+        '@workspace',
+        '',
         '===================================================================',
         '                       YOUR TASK TO IMPLEMENT',
         '===================================================================',
@@ -252,7 +254,9 @@ export async function buildUserStoriesGenerationPrompt(taskDescription: string, 
     const prd = await readPRDAsync() || '';
     const root = getWorkspaceRoot();
 
-    return `===================================================================
+    return `@workspace
+
+===================================================================
                   GENERATE USER STORIES FOR TASK
 ===================================================================
 
@@ -287,7 +291,7 @@ Add a new section with this EXACT format:
 ═══════════════════════════════════════════════════════════════
 
 1. **User Story Format**: Each story MUST use \`- [ ] \` checkbox format
-2. **Keep it focused**: Generate 3-5 user stories per task
+2. **Keep it focused**: Generate 5-8 user stories per task
 3. **Logical Order**: Order stories so they can be completed sequentially
 4. **Atomic Stories**: Each story should be completable in one agent session
 5. **Clear Acceptance**: Each story should have a clear definition of done
@@ -301,7 +305,7 @@ Add a new section with this EXACT format:
 ## BAD USER STORIES:
 - [ ] Create file (too vague - what file? why?)
 - [ ] Fix bug (what bug? be specific)
-- [ ] 10+ stories (too many - keep it to 3-5!)
+- [ ] 12+ stories (too many - keep it to 5-8!)
 
 ═══════════════════════════════════════════════════════════════
 
@@ -326,6 +330,8 @@ export async function buildUserStoryImplementationPrompt(
     const root = getWorkspaceRoot();
 
     const parts: string[] = [
+        '@workspace',
+        '',
         '===================================================================',
         '                    USER STORY TO IMPLEMENT',
         '===================================================================',

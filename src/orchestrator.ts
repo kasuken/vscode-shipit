@@ -301,9 +301,22 @@ export class LoopOrchestrator {
         const stats = await getTaskStatsAsync();
 
         if (stats.pending === 0) {
+            // Calculate total elapsed time
+            const totalElapsedMs = Date.now() - this.sessionStartTime;
+            const totalSeconds = Math.floor(totalElapsedMs / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            const formattedTime = `${hours}h ${minutes}m ${seconds}s`;
+            
             this.ui.addLog('🎉 All tasks completed!', true);
+            this.ui.addLog(`⏱️ Total elapsed time: ${formattedTime}`, true);
+            
+            // Append total time to progress log
+            await appendProgressAsync(`🎉 All tasks completed! Total time: ${formattedTime}`);
+            
             this.stopLoop();
-            vscode.window.showInformationMessage('PilotFlow: All PRD tasks completed! 🎉');
+            vscode.window.showInformationMessage(`PilotFlow: All PRD tasks completed! 🎉 Total time: ${formattedTime}`);
             return;
         }
 
