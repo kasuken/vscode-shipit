@@ -1,0 +1,134 @@
+{
+  "name": "pilotflow",
+  "displayName": "PilotFlow - Autonomous PRD Development",
+  "description": "Runs Copilot Agent Mode in a loop to implement tasks from your PRD",
+  "version": "0.0.1",
+  "publisher": "pilotflow-dev",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.93.0"
+  },
+  "categories": [
+    "AI",
+    "Chat",
+    "Other"
+  ],
+  "keywords": [
+    "copilot",
+    "ai",
+    "agent",
+    "prd",
+    "development",
+    "loop",
+    "pilotflow",
+    "autonomous"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "pilotflow",
+          "title": "PilotFlow",
+          "icon": "$(rocket)"
+        }
+      ]
+    },
+    "views": {
+      "pilotflow": [
+        {
+          "type": "webview",
+          "id": "pilotflow.sidebar",
+          "name": "PilotFlow",
+          "icon": "$(rocket)"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "pilotflow.showPanel",
+        "title": "PilotFlow: Open Control Panel",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "pilotflow.start",
+        "title": "PilotFlow: Start Loop"
+      },
+      {
+        "command": "pilotflow.stop",
+        "title": "PilotFlow: Stop Loop"
+      },
+      {
+        "command": "pilotflow.pause",
+        "title": "PilotFlow: Pause Loop"
+      },
+      {
+        "command": "pilotflow.resume",
+        "title": "PilotFlow: Resume Loop"
+      },
+      {
+        "command": "pilotflow.next",
+        "title": "PilotFlow: Run Single Step"
+      },
+      {
+        "command": "pilotflow.generatePrd",
+        "title": "PilotFlow: Generate PRD from Description"
+      },
+      {
+        "command": "pilotflow.viewLogs",
+        "title": "PilotFlow: View Logs"
+      }
+    ],
+    "configuration": {
+      "title": "PilotFlow",
+      "properties": {
+        "pilotflow.files.prdPath": {
+          "type": "string",
+          "default": ".pilotflow/PRD.md",
+          "description": "Path to the PRD (Product Requirements Document) file"
+        },
+        "pilotflow.files.progressPath": {
+          "type": "string",
+          "default": ".pilotflow/progress.txt",
+          "description": "Path to the progress tracking file"
+        },
+        "pilotflow.prompt.customTemplate": {
+          "type": "string",
+          "default": "",
+          "editPresentation": "multilineText",
+          "description": "Custom prompt template to override the default. Use {{task}} for the task description, {{prd}} for PRD contents, {{progress}} for progress log, {{requirements}} for requirement steps, and {{workspace}} for workspace path."
+        },
+        "pilotflow.prompt.customPrdGenerationTemplate": {
+          "type": "string",
+          "default": "",
+          "editPresentation": "multilineText",
+          "description": "Custom PRD generation prompt template. Use {{task}} for user's request and {{workspace}} for workspace path."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.93.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "typescript-eslint": "^8.52.0",
+    "eslint": "^9.39.2",
+    "typescript": "^5.9.3",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
+  },
+  "extensionDependencies": [
+    "github.copilot-chat"
+  ]
+}
