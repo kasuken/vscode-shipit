@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fsPromises from 'fs/promises';
 
-import { Task, TaskStatus, TaskStats } from './types';
+import { Task, TaskStatus, TaskStats, UserStory, UserStoryStatus, UserStoryStats } from './types';
 import { getConfig } from './config';
 import { logError } from './logger';
 
@@ -31,6 +31,7 @@ export function getWorkspaceRoot(): string | null {
 
 /**
  * Read the PRD file contents
+ * Checks configured path first, then falls back to PRD.md at root
  */
 export async function readPRDAsync(): Promise<string | null> {
     const config = getConfig();
@@ -38,10 +39,20 @@ export async function readPRDAsync(): Promise<string | null> {
     if (!root) { return null; }
 
     const prdPath = path.join(root, config.files.prdPath);
-    await ensureDirectoryExists(prdPath);
+    
+    // Try configured path first
     try {
         await fsPromises.access(prdPath);
         return await fsPromises.readFile(prdPath, 'utf-8');
+    } catch {
+        // Configured path not found, try fallback to root PRD.md
+    }
+
+    // Fallback: check for PRD.md at root
+    const fallbackPath = path.join(root, 'PRD.md');
+    try {
+        await fsPromises.access(fallbackPath);
+        return await fsPromises.readFile(fallbackPath, 'utf-8');
     } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
             logError('Failed to read PRD.md', error);
@@ -209,4 +220,216 @@ export function getPrdPath(): string | null {
     const root = getWorkspaceRoot();
     if (!root) { return null; }
     return path.join(root, config.files.prdPath);
+}
+
+// ============================================================================
+// User Stories File Management
+// ============================================================================
+
+const USER_STORIES_FILENAME = '.pilotflow/userstories.md';
+
+/**
+ * Get the user stories file path
+ */
+export function getUserStoriesPath(): string | null {
+    const root = getWorkspaceRoot();
+    if (!root) { return null; }
+    return path.join(root, USER_STORIES_FILENAME);
+}
+
+/**
+ * Read the user stories file contents
+ */
+export async function readUserStoriesAsync(): Promise<string | null> {
+    const storiesPath = getUserStoriesPath();
+    if (!storiesPath) { return null; }
+
+    await ensureDirectoryExists(storiesPath);
+    try {
+        await fsPromises.access(storiesPath);
+        return await fsPromises.readFile(storiesPath, 'utf-8');
+    } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+            logError('Failed to read userstories.md', error);
+        }
+        return null;
+    }
+}
+
+/**
+ * Write content to the user stories file
+ */
+export async function writeUserStoriesAsync(content: string): Promise<boolean> {
+    const storiesPath = getUserStoriesPath();
+    if (!storiesPath) { return false; }
+
+    await ensureDirectoryExists(storiesPath);
+    try {
+        await fsPromises.writeFile(storiesPath, content, 'utf-8');
+        return true;
+    } catch (error) {
+        logError('Failed to write userstories.md', error);
+        return false;
+    }
+}
+
+/**
+ * Parse user stories from content for a specific task
+ */
+function parseUserStoriesFromContent(content: string, taskId: string): UserStory[] {
+    const stories: UserStory[] = [];
+    const lines = content.split('\n');
+
+    // Find the section for this task
+    let inTaskSection = false;
+    let taskSectionPattern = new RegExp(`^##\\s+Task:\\s*${escapeRegExp(taskId)}`, 'i');
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        // Check if we're entering a task section
+        if (line.match(/^##\s+Task:/i)) {
+            inTaskSection = taskSectionPattern.test(line);
+            continue;
+        }
+
+        // Skip if not in the right task section
+        if (!inTaskSection) { continue; }
+
+        // Match user story checkbox format: - [ ] or - [x]
+        const match = /^[-*]\s*\[([ x~])\]\s*(.+)$/im.exec(line);
+        if (match) {
+            const marker = match[1].toLowerCase();
+            const description = match[2].trim();
+
+            let status: UserStoryStatus;
+            switch (marker) {
+                case 'x':
+                    status = UserStoryStatus.COMPLETE;
+                    break;
+                case '~':
+                    status = UserStoryStatus.IN_PROGRESS;
+                    break;
+                default:
+                    status = UserStoryStatus.PENDING;
+            }
+
+            stories.push({
+                id: `story-${taskId}-${stories.length + 1}`,
+                taskId,
+                description,
+                status,
+                lineNumber: i + 1
+            });
+        }
+    }
+
+    return stories;
+}
+
+/**
+ * Escape special regex characters
+ */
+function escapeRegExp(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Get user stories for a specific task
+ */
+export async function getUserStoriesForTaskAsync(taskId: string): Promise<UserStory[]> {
+    const content = await readUserStoriesAsync();
+    if (!content) { return []; }
+    return parseUserStoriesFromContent(content, taskId);
+}
+
+/**
+ * Get all user stories from the file
+ */
+export async function getAllUserStoriesAsync(): Promise<UserStory[]> {
+    const content = await readUserStoriesAsync();
+    if (!content) { return []; }
+
+    const stories: UserStory[] = [];
+    const lines = content.split('\n');
+    let currentTaskId = '';
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        // Check for task section header
+        const taskMatch = line.match(/^##\s+Task:\s*(.+)$/i);
+        if (taskMatch) {
+            currentTaskId = taskMatch[1].trim();
+            continue;
+        }
+
+        if (!currentTaskId) { continue; }
+
+        // Match user story checkbox format
+        const storyMatch = /^[-*]\s*\[([ x~])\]\s*(.+)$/im.exec(line);
+        if (storyMatch) {
+            const marker = storyMatch[1].toLowerCase();
+            const description = storyMatch[2].trim();
+
+            let status: UserStoryStatus;
+            switch (marker) {
+                case 'x':
+                    status = UserStoryStatus.COMPLETE;
+                    break;
+                case '~':
+                    status = UserStoryStatus.IN_PROGRESS;
+                    break;
+                default:
+                    status = UserStoryStatus.PENDING;
+            }
+
+            stories.push({
+                id: `story-${currentTaskId}-${stories.length + 1}`,
+                taskId: currentTaskId,
+                description,
+                status,
+                lineNumber: i + 1
+            });
+        }
+    }
+
+    return stories;
+}
+
+/**
+ * Get the next pending user story for a task
+ */
+export async function getNextUserStoryAsync(taskId: string): Promise<UserStory | null> {
+    const stories = await getUserStoriesForTaskAsync(taskId);
+    return stories.find(s => s.status === UserStoryStatus.PENDING || s.status === UserStoryStatus.IN_PROGRESS) || null;
+}
+
+/**
+ * Get user story statistics for a task
+ */
+export async function getUserStoryStatsAsync(taskId: string): Promise<UserStoryStats> {
+    const stories = await getUserStoriesForTaskAsync(taskId);
+    return {
+        total: stories.length,
+        completed: stories.filter(s => s.status === UserStoryStatus.COMPLETE).length,
+        pending: stories.filter(s => s.status === UserStoryStatus.PENDING || s.status === UserStoryStatus.IN_PROGRESS).length
+    };
+}
+
+/**
+ * Check if user stories exist for a task
+ */
+export async function hasUserStoriesForTaskAsync(taskId: string): Promise<boolean> {
+    const stories = await getUserStoriesForTaskAsync(taskId);
+    return stories.length > 0;
+}
+
+/**
+ * Check if all user stories for a task are complete
+ */
+export async function areAllUserStoriesCompleteAsync(taskId: string): Promise<boolean> {
+    const stories = await getUserStoriesForTaskAsync(taskId);
+    if (stories.length === 0) { return false; }
+    return stories.every(s => s.status === UserStoryStatus.COMPLETE);
 }

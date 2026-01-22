@@ -140,3 +140,32 @@ export interface TaskStats {
     completed: number;
     pending: number;
 }
+
+/**
+ * Status of an individual user story
+ */
+export enum UserStoryStatus {
+    PENDING = 'PENDING',
+    IN_PROGRESS = 'IN_PROGRESS',
+    COMPLETE = 'COMPLETE'
+}
+
+/**
+ * Represents a user story for a task
+ */
+export interface UserStory {
+    id: string;
+    taskId: string;
+    description: string;
+    status: UserStoryStatus;
+    lineNumber: number;
+}
+
+/**
+ * User story statistics for a task
+ */
+export interface UserStoryStats {
+    total: number;
+    completed: number;
+    pending: number;
+}

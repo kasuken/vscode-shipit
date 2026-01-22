@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { IPilotFlowUI, TaskCompletion, TaskStats, Task } from './types';
-import { getTaskStatsAsync, getNextTaskAsync, getAllTasksAsync } from './fileUtils';
+import { IPilotFlowUI, TaskCompletion, TaskStats, Task, UserStory } from './types';
+import { getTaskStatsAsync, getNextTaskAsync, getAllTasksAsync, getAllUserStoriesAsync, getUserStoryStatsAsync } from './fileUtils';
 import { log } from './logger';
 
 /**
@@ -129,8 +129,9 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
         const stats = await getTaskStatsAsync();
         const tasks = await getAllTasksAsync();
         const nextTask = await getNextTaskAsync();
+        const userStories = await getAllUserStoriesAsync();
         this._pendingTasks = stats.pending;
-        this._sendFullState(stats, tasks, nextTask);
+        this._sendFullState(stats, tasks, nextTask, userStories);
     }
 
     addLog(message: string, highlight: boolean = false): void {
@@ -157,7 +158,7 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
     /**
      * Send full state to webview
      */
-    private _sendFullState(stats: TaskStats, tasks: Task[], nextTask: Task | null): void {
+    private _sendFullState(stats: TaskStats, tasks: Task[], nextTask: Task | null, userStories: UserStory[] = []): void {
         if (!this._view) { return; }
 
         this._view.webview.postMessage({
@@ -173,7 +174,8 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
             isPrdGenerating: this._isPrdGenerating,
             stats: stats,
             tasks: tasks,
-            nextTask: nextTask
+            nextTask: nextTask,
+            userStories: userStories
         });
     }
 
@@ -530,6 +532,13 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
         </div>
     </div>
 
+    <div class="section" id="userStoriesSection">
+        <div class="section-title">User Stories</div>
+        <div id="userStoriesList" class="task-list">
+            <div class="empty-state" style="padding: 10px;">No user stories yet</div>
+        </div>
+    </div>
+
     <div class="section">
         <div class="section-title">
             Activity Log
@@ -555,6 +564,7 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
             countdown: 0,
             stats: { total: 0, completed: 0, pending: 0 },
             tasks: [],
+            userStories: [],
             logs: []
         };
 
@@ -607,6 +617,9 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
             // Task list
             renderTasks();
 
+            // User stories
+            renderUserStories();
+
             // Logs
             renderLogs();
         }
@@ -653,6 +666,61 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
             container.innerHTML = html;
         }
 
+        function renderUserStories() {
+            const container = document.getElementById('userStoriesList');
+            const section = document.getElementById('userStoriesSection');
+            
+            if (!state.userStories || state.userStories.length === 0) {
+                section.style.display = 'none';
+                return;
+            }
+            
+            section.style.display = 'block';
+
+            // Group user stories by task
+            const storiesByTask = {};
+            state.userStories.forEach(story => {
+                if (!storiesByTask[story.taskId]) {
+                    storiesByTask[story.taskId] = [];
+                }
+                storiesByTask[story.taskId].push(story);
+            });
+
+            let html = '';
+            for (const taskId in storiesByTask) {
+                const stories = storiesByTask[taskId];
+                const completed = stories.filter(s => s.status === 'COMPLETE').length;
+                html += '<div class="task-group">';
+                html += '<div class="task-group-header" style="font-size: 10px; color: var(--vscode-descriptionForeground); margin: 8px 0 4px 0;">' + escapeHtml(taskId) + ' (' + completed + '/' + stories.length + ')</div>';
+                
+                stories.forEach(story => {
+                    let checkboxClass = 'task-checkbox';
+                    let textClass = 'task-text';
+                    let icon = '';
+                    
+                    switch (story.status) {
+                        case 'COMPLETE':
+                            checkboxClass += ' completed';
+                            textClass += ' completed';
+                            icon = '✓';
+                            break;
+                        case 'IN_PROGRESS':
+                            checkboxClass += ' in-progress';
+                            icon = '~';
+                            break;
+                        default:
+                            icon = '';
+                    }
+
+                    html += '<div class="task-item"><div class="' + checkboxClass + '">' + icon + '</div><div class="' + textClass + '">' + escapeHtml(story.description) + '</div></div>';
+                });
+                
+                html += '</div>';
+            }
+
+            container.innerHTML = html;
+        }
+
         function renderLogs() {
             const container = document.getElementById('logsContainer');
             
@@ -692,6 +760,9 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
                 }
                 if (message.tasks) {
                     state.tasks = message.tasks;
+                }
+                if (message.userStories) {
+                    state.userStories = message.userStories;
                 }
                 
                 updateUI();

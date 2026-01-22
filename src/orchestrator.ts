@@ -7,7 +7,19 @@ import {
     IPilotFlowUI
 } from './types';
 import { logError } from './logger';
-import { readPRDAsync, getNextTaskAsync, getTaskStatsAsync, getWorkspaceRoot, appendProgressAsync, ensureProgressFileAsync } from './fileUtils';
+import { 
+    readPRDAsync, 
+    getNextTaskAsync, 
+    getTaskStatsAsync, 
+    getWorkspaceRoot, 
+    appendProgressAsync, 
+    ensureProgressFileAsync,
+    hasUserStoriesForTaskAsync,
+    getNextUserStoryAsync,
+    areAllUserStoriesCompleteAsync,
+    getUserStoryStatsAsync,
+    readUserStoriesAsync
+} from './fileUtils';
 import { PilotFlowStatusBar } from './statusBar';
 import { CountdownTimer, InactivityMonitor } from './timerManager';
 import { FileWatcherManager } from './fileWatchers';
@@ -21,6 +33,13 @@ export class LoopOrchestrator {
     private state: LoopExecutionState = LoopExecutionState.IDLE;
     private isPaused = false;
     private sessionStartTime = 0;
+    
+    // User story workflow state
+    private currentTaskId = '';
+    private currentTaskDescription = '';
+    private isGeneratingUserStories = false;
+    private isImplementingUserStory = false;
+    private currentUserStoryDescription = '';
 
     private readonly ui: UIManager;
     private readonly taskRunner: TaskRunner;
@@ -298,17 +317,130 @@ export class LoopOrchestrator {
 
         const iteration = this.taskRunner.incrementIteration();
         this.taskRunner.setCurrentTask(task.description);
+        this.currentTaskId = task.id;
+        this.currentTaskDescription = task.description;
         this.ui.setIteration(iteration);
         this.ui.setTaskInfo(task.description);
         this.ui.updateStatus('running', iteration, task.description);
 
-        this.ui.addLog(`Task ${iteration}: ${task.description}`);
-        await this.taskRunner.triggerCopilotAgent(task.description);
+        // Check if user stories exist for this task
+        const hasStories = await hasUserStoriesForTaskAsync(task.description);
+        
+        if (!hasStories) {
+            // Generate user stories first
+            this.ui.addLog(`📋 Task ${iteration}: ${task.description}`);
+            this.ui.addLog('Generating user stories for this task...');
+            this.isGeneratingUserStories = true;
+            this.isImplementingUserStory = false;
+            
+            await this.taskRunner.triggerUserStoriesGeneration(task.description, task.id);
+            
+            // Set up watcher for user stories file creation
+            this.setupUserStoriesWatcher();
+            this.inactivityMonitor.setWaiting(true);
+            this.ui.updateStatus('waiting', iteration, `Generating stories for: ${task.description}`);
+            this.ui.addLog('Waiting for Copilot to create user stories...');
+        } else {
+            // User stories exist, run the next one
+            await this.runNextUserStory();
+        }
+    }
 
-        this.fileWatchers.prdWatcher.enable();
+    /**
+     * Run the next user story for the current task
+     */
+    private async runNextUserStory(): Promise<void> {
+        if (this.state !== LoopExecutionState.RUNNING || this.isPaused) {
+            return;
+        }
+
+        // Check if all user stories for current task are complete
+        const allComplete = await areAllUserStoriesCompleteAsync(this.currentTaskDescription);
+        
+        if (allComplete) {
+            this.ui.addLog(`✅ All user stories complete for task: ${this.currentTaskDescription}`, true);
+            this.ui.addLog('Task is ready to be marked complete in PRD.md');
+            
+            // Mark the task complete in PRD.md - trigger agent to do this
+            await this.taskRunner.triggerCopilotAgent(
+                `Mark the following task as complete in PRD.md by changing "- [ ]" to "- [x]": ${this.currentTaskDescription}`
+            );
+            
+            this.fileWatchers.prdWatcher.enable();
+            this.inactivityMonitor.setWaiting(true);
+            this.ui.updateStatus('waiting', this.taskRunner.getIterationCount(), this.currentTaskDescription);
+            this.ui.addLog('Waiting for task to be marked complete in PRD.md...');
+            return;
+        }
+
+        const story = await getNextUserStoryAsync(this.currentTaskDescription);
+        if (!story) {
+            this.ui.addLog('No more user stories to process for this task');
+            await this.startCountdown();
+            return;
+        }
+
+        const storyStats = await getUserStoryStatsAsync(this.currentTaskDescription);
+        
+        this.isImplementingUserStory = true;
+        this.isGeneratingUserStories = false;
+        this.currentUserStoryDescription = story.description;
+        
+        this.ui.addLog(`📖 User Story (${storyStats.completed + 1}/${storyStats.total}): ${story.description}`);
+        
+        await this.taskRunner.triggerUserStoryImplementation(story.description, this.currentTaskDescription);
+        
+        // Watch for user stories file changes
+        this.setupUserStoriesWatcher();
         this.inactivityMonitor.setWaiting(true);
-        this.ui.updateStatus('waiting', iteration, task.description);
-        this.ui.addLog('Waiting for Copilot to complete and update PRD.md...');
+        this.ui.updateStatus('waiting', this.taskRunner.getIterationCount(), story.description);
+        this.ui.addLog('Waiting for Copilot to complete user story and update userstories.md...');
+    }
+
+    /**
+     * Set up watcher for user stories file
+     */
+    private setupUserStoriesWatcher(): void {
+        const root = getWorkspaceRoot();
+        if (!root) { return; }
+
+        // We use the activity watcher and periodically check the user stories file
+        this.fileWatchers.activityWatcher.start(() => {
+            this.inactivityMonitor.recordActivity();
+            this.checkUserStoriesProgress();
+        });
+
+        this.inactivityMonitor.start(() => this.handleInactivity());
+    }
+
+    /**
+     * Check user stories progress
+     */
+    private async checkUserStoriesProgress(): Promise<void> {
+        if (this.isGeneratingUserStories) {
+            // Check if user stories were created
+            const hasStories = await hasUserStoriesForTaskAsync(this.currentTaskDescription);
+            if (hasStories) {
+                this.ui.addLog('✅ User stories generated!', true);
+                this.isGeneratingUserStories = false;
+                this.inactivityMonitor.stop();
+                await this.startCountdown();
+            }
+        } else if (this.isImplementingUserStory) {
+            // Check if current user story was completed
+            const story = await getNextUserStoryAsync(this.currentTaskDescription);
+            if (!story || story.description !== this.currentUserStoryDescription) {
+                this.ui.addLog('✅ User story completed!', true);
+                this.isImplementingUserStory = false;
+                this.currentUserStoryDescription = '';
+                this.inactivityMonitor.stop();
+                
+                // Log progress
+                await appendProgressAsync(`✅ Completed user story: ${this.currentUserStoryDescription}`);
+                
+                await this.startCountdown();
+            }
+        }
     }
 
     /**
@@ -383,10 +515,10 @@ export class LoopOrchestrator {
     }
 
     /**
-     * Start countdown before next task
+     * Start countdown before next task/user story
      */
     private async startCountdown(): Promise<void> {
-        this.ui.addLog(`Starting next task in ${REVIEW_COUNTDOWN_SECONDS} seconds...`);
+        this.ui.addLog(`Starting next step in ${REVIEW_COUNTDOWN_SECONDS} seconds...`);
 
         await this.countdownTimer.start(REVIEW_COUNTDOWN_SECONDS, (remaining) => {
             this.ui.updateCountdown(remaining);
@@ -394,7 +526,22 @@ export class LoopOrchestrator {
 
         if (this.state === LoopExecutionState.RUNNING && !this.isPaused) {
             await this.ui.updateStats();
-            await this.runNextTask();
+            
+            // Check if we should continue with user stories or move to next task
+            if (this.currentTaskDescription) {
+                const hasStories = await hasUserStoriesForTaskAsync(this.currentTaskDescription);
+                const allComplete = hasStories && await areAllUserStoriesCompleteAsync(this.currentTaskDescription);
+                
+                if (hasStories && !allComplete) {
+                    // Continue with next user story
+                    await this.runNextUserStory();
+                } else {
+                    // Move to next task
+                    await this.runNextTask();
+                }
+            } else {
+                await this.runNextTask();
+            }
         }
     }
 

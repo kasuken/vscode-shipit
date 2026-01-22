@@ -8,7 +8,7 @@ import {
 } from './types';
 import { logError } from './logger';
 import { getWorkspaceRoot } from './fileUtils';
-import { buildAgentPromptAsync, buildPrdGenerationPrompt } from './promptBuilder';
+import { buildAgentPromptAsync, buildPrdGenerationPrompt, buildUserStoriesGenerationPrompt, buildUserStoryImplementationPrompt } from './promptBuilder';
 import { openCopilotWithPrompt, startFreshChatSession, CopilotResult } from './copilotIntegration';
 import { formatDuration } from './timerManager';
 
@@ -197,6 +197,69 @@ export class TaskRunner {
             const errorMessage = error instanceof Error ? error.message : String(error);
             this.log(`Failed to open Copilot for PRD: ${errorMessage}`);
             logError('Failed to open Copilot for PRD generation', error);
+            return null;
+        }
+    }
+
+    /**
+     * Trigger user stories generation for a task
+     */
+    async triggerUserStoriesGeneration(taskDescription: string, taskId: string): Promise<CopilotResult | null> {
+        this.log('✨ Generating user stories for task...');
+
+        try {
+            const prompt = await buildUserStoriesGenerationPrompt(taskDescription, taskId);
+
+            const success = await startFreshChatSession();
+            if (success) {
+                this.log('Started fresh chat session');
+            }
+
+            const method = await openCopilotWithPrompt(prompt);
+            this.log(
+                method === 'agent' ? 'Opened Copilot Agent Mode for user stories generation' :
+                    method === 'chat' ? 'Opened Copilot Chat for user stories generation' :
+                        'Prompt copied to clipboard'
+            );
+            return method;
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.log(`Failed to generate user stories: ${errorMessage}`);
+            logError('Failed to generate user stories', error);
+            return null;
+        }
+    }
+
+    /**
+     * Trigger implementation of a user story
+     */
+    async triggerUserStoryImplementation(
+        userStoryDescription: string,
+        taskDescription: string
+    ): Promise<CopilotResult | null> {
+        try {
+            const prompt = await buildUserStoryImplementationPrompt(
+                userStoryDescription,
+                taskDescription,
+                this.requirements
+            );
+
+            const success = await startFreshChatSession();
+            if (success) {
+                this.log('Started fresh chat session');
+            }
+
+            const method = await openCopilotWithPrompt(prompt);
+            this.log(
+                method === 'agent' ? 'Opened Copilot Agent Mode' :
+                    method === 'chat' ? 'Opened Copilot Chat' :
+                        'Prompt copied to clipboard'
+            );
+            return method;
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.log(`Failed to trigger Copilot: ${errorMessage}`);
+            logError('Failed to trigger Copilot Agent for user story', error);
             return null;
         }
     }

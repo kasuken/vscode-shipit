@@ -1,5 +1,5 @@
 import { TaskRequirements } from './types';
-import { readPRDAsync, readProgressAsync, getWorkspaceRoot } from './fileUtils';
+import { readPRDAsync, readProgressAsync, getWorkspaceRoot, readUserStoriesAsync } from './fileUtils';
 import { getConfig } from './config';
 
 const MAX_TASK_DESCRIPTION_LENGTH = 5000;
@@ -242,4 +242,166 @@ Create a file called \`PRD.md\` in the workspace root with this EXACT structure:
 Workspace: ${workspaceRoot}
 
 Now create the PRD.md file based on the user's request above. Make the tasks specific and actionable.`;
+}
+
+/**
+ * Build the prompt for generating user stories from a task
+ */
+export async function buildUserStoriesGenerationPrompt(taskDescription: string, taskId: string): Promise<string> {
+    const sanitizedTask = sanitizeTaskDescription(taskDescription);
+    const prd = await readPRDAsync() || '';
+    const root = getWorkspaceRoot();
+
+    return `===================================================================
+                  GENERATE USER STORIES FOR TASK
+===================================================================
+
+You need to break down a task into smaller, implementable user stories.
+
+## TASK TO BREAK DOWN:
+${sanitizedTask}
+
+## PROJECT CONTEXT (PRD.md):
+\`\`\`markdown
+${prd}
+\`\`\`
+
+===================================================================
+                    REQUIRED OUTPUT FORMAT
+===================================================================
+
+Create or update the file \`.pilotflow/userstories.md\` with user stories for this task.
+
+Add a new section with this EXACT format:
+
+\`\`\`markdown
+## Task: ${sanitizedTask}
+
+- [ ] User Story 1: As a [user/developer], I want [feature] so that [benefit]
+- [ ] User Story 2: As a [user/developer], I want [feature] so that [benefit]
+- [ ] User Story 3: Continue with more stories...
+\`\`\`
+
+═══════════════════════════════════════════════════════════════
+                      ⚠️ IMPORTANT RULES
+═══════════════════════════════════════════════════════════════
+
+1. **User Story Format**: Each story MUST use \`- [ ] \` checkbox format
+2. **Keep it focused**: Generate 3-5 user stories per task
+3. **Logical Order**: Order stories so they can be completed sequentially
+4. **Atomic Stories**: Each story should be completable in one agent session
+5. **Clear Acceptance**: Each story should have a clear definition of done
+6. **Preserve Existing**: If the file already has content for other tasks, preserve it
+
+## EXAMPLE USER STORIES (good):
+- [ ] As a developer, I want to set up the database schema so that data can be persisted
+- [ ] As a user, I want to see a list of items so that I can browse available options
+- [ ] As a user, I want to filter items by category so that I can find what I need faster
+
+## BAD USER STORIES:
+- [ ] Create file (too vague - what file? why?)
+- [ ] Fix bug (what bug? be specific)
+- [ ] 10+ stories (too many - keep it to 3-5!)
+
+═══════════════════════════════════════════════════════════════
+
+Workspace: ${root}
+
+Now create the user stories for this task. Make them specific, actionable, and testable.`;
+}
+
+/**
+ * Build the agent prompt for implementing a user story
+ */
+export async function buildUserStoryImplementationPrompt(
+    userStoryDescription: string,
+    taskDescription: string,
+    requirements: TaskRequirements
+): Promise<string> {
+    const sanitizedStory = sanitizeTaskDescription(userStoryDescription);
+    const sanitizedTask = sanitizeTaskDescription(taskDescription);
+    const prd = await readPRDAsync() || '';
+    const progress = await readProgressAsync();
+    const userStories = await readUserStoriesAsync() || '';
+    const root = getWorkspaceRoot();
+
+    const parts: string[] = [
+        '===================================================================',
+        '                    USER STORY TO IMPLEMENT',
+        '===================================================================',
+        '',
+        sanitizedStory,
+        '',
+        '───────────────────────────────────────────────────────────────',
+        `Parent Task: ${sanitizedTask}`,
+        '───────────────────────────────────────────────────────────────',
+        '',
+        '===================================================================',
+        '     MANDATORY: UPDATE userstories.md AND progress.txt WHEN DONE',
+        '═══════════════════════════════════════════════════════════════',
+        '',
+        '🚨 THESE STEPS ARE REQUIRED - DO NOT SKIP THEM! 🚨',
+        '',
+        '1. After completing this user story, UPDATE .pilotflow/userstories.md:',
+        '',
+        `   Find this line:    - [ ] ${sanitizedStory}`,
+        `   Change it to:      - [x] ${sanitizedStory}`,
+        '',
+        '2. APPEND to .pilotflow/progress.txt with what you did:',
+        '',
+        '   Add a new line describing what was completed, e.g.:',
+        `   "Completed user story: ${sanitizedStory} - [brief summary]"`,
+        '',
+        'Both updates are required for PilotFlow to continue to the next user story!',
+        '',
+        '═══════════════════════════════════════════════════════════════',
+        '                      PROJECT CONTEXT',
+        '═══════════════════════════════════════════════════════════════',
+        '',
+        '## Current PRD.md Contents:',
+        '```markdown',
+        prd,
+        '```',
+        '',
+        '## Current User Stories (.pilotflow/userstories.md):',
+        '```markdown',
+        userStories,
+        '```',
+        ''
+    ];
+
+    if (progress && progress.trim()) {
+        parts.push('## Progress Log (.pilotflow/progress.txt):');
+        parts.push('```');
+        parts.push(progress);
+        parts.push('```');
+        parts.push('');
+    }
+
+    parts.push('═══════════════════════════════════════════════════════════════');
+    parts.push('                       WORKFLOW REMINDER');
+    parts.push('═══════════════════════════════════════════════════════════════');
+    parts.push('');
+    parts.push('1. ✅ Implement this user story');
+
+    let stepNum = 2;
+    if (requirements.writeTests) {
+        parts.push(`${stepNum}. ✅ Write unit tests for your implementation`);
+        stepNum++;
+    }
+    if (requirements.runTests) {
+        parts.push(`${stepNum}. ✅ Run tests and ensure they pass`);
+        stepNum++;
+    }
+
+    parts.push(`${stepNum}. ✅ UPDATE .pilotflow/userstories.md: Mark this user story as complete [x]`);
+    stepNum++;
+    parts.push(`${stepNum}. ✅ APPEND to .pilotflow/progress.txt: Record what you completed`);
+
+    parts.push('');
+    parts.push(`Workspace: ${root}`);
+    parts.push('');
+    parts.push('Begin now. Remember: updating userstories.md when done is MANDATORY!');
+
+    return parts.join('\n');
 }

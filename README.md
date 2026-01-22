@@ -19,11 +19,22 @@
 
 1. **Read PRD.md** - PilotFlow finds and parses your PRD file
 2. **Find next unchecked task** - Identifies the next `- [ ]` item
-3. **Send task to Copilot** - Opens Copilot Agent Mode with the task and context
-4. **Copilot implements** - Copilot Agent Mode works on the task
-5. **Detect completion** - PilotFlow watches for PRD.md changes (task marked `[x]`)
-6. **Countdown & continue** - After a brief countdown, PilotFlow starts the next task
-7. **Repeat** - Loop continues until all tasks are done
+3. **Generate User Stories** - Copilot breaks the task into 3-5 smaller user stories
+4. **Save User Stories** - Stories are saved to `.pilotflow/userstories.md`
+5. **Implement User Stories** - Each user story is sent to Copilot one at a time
+6. **Mark Story Complete** - Copilot marks each story `[x]` when done
+7. **Complete Task** - When all user stories for a task are done, the task is marked complete
+8. **Countdown & continue** - After a brief countdown, PilotFlow starts the next task
+9. **Repeat** - Loop continues until all tasks are done
+
+### User Stories Workflow
+
+PilotFlow uses a two-tier approach for more granular implementation:
+
+- **Tasks** (from PRD.md) are high-level work items
+- **User Stories** (in userstories.md) are smaller, actionable pieces of each task
+
+This ensures each Copilot session has a focused, achievable goal while maintaining the big-picture context from the PRD.
 
 ## Quick Start
 
@@ -74,6 +85,7 @@ PilotFlow recognizes these checkbox formats:
 |---------|---------|-------------|
 | `pilotflow.files.prdPath` | `.pilotflow/PRD.md` | Path to the PRD file |
 | `pilotflow.files.progressPath` | `.pilotflow/progress.txt` | Path to the progress log file |
+| `pilotflow.files.userStoriesPath` | `.pilotflow/userstories.md` | Path to user stories file |
 | `pilotflow.prompt.customTemplate` | (empty) | Custom prompt template for tasks |
 | `pilotflow.prompt.customPrdGenerationTemplate` | (empty) | Custom PRD generation template |
 
@@ -102,8 +114,38 @@ Click the **🚀 PilotFlow** icon in the Activity Bar to open the sidebar contro
 - **Countdown Timer** - Visual countdown before next task starts
 - **Current Task** - Shows what's being worked on
 - **Control Buttons** - Start, Stop, Pause, Resume, Single Step, Generate PRD
+- **User Stories** - See user stories for each task with completion progress
 - **Task List** - View all tasks with their status (pending/complete/blocked)
 - **Activity Log** - Real-time log of PilotFlow operations
+
+## File Structure
+
+PilotFlow maintains these files in the `.pilotflow/` folder:
+
+```
+.pilotflow/
+├── PRD.md           # Product Requirements Document with tasks
+├── progress.txt     # Log of completed work
+└── userstories.md   # Generated user stories for each task
+```
+
+### User Stories Format
+
+User stories are organized by task in `userstories.md`:
+
+```markdown
+## Task: Set up project structure with dependencies
+
+- [x] Initialize npm project with package.json
+- [x] Add TypeScript configuration
+- [ ] Set up ESLint and Prettier
+- [ ] Configure build scripts
+
+## Task: Create core data models and types
+
+- [ ] Define User interface with required fields
+- [ ] Create validation schemas
+```
 
 ## Requirements
 
