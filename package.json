@@ -80,6 +80,10 @@
       {
         "command": "pilotflow.viewLogs",
         "title": "PilotFlow: View Logs"
+      },
+      {
+        "command": "pilotflow.init",
+        "title": "PilotFlow: Initialize Project (Setup Custom Agents)"
       }
     ],
     "configuration": {

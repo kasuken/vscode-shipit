@@ -61,6 +61,9 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
                 case 'viewLogs':
                     vscode.commands.executeCommand('pilotflow.viewLogs');
                     break;
+                case 'init':
+                    vscode.commands.executeCommand('pilotflow.init');
+                    break;
                 case 'openPrd':
                     this._openPrdFile();
                     break;
@@ -531,6 +534,14 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
                     ⏭ Single Step
                 </button>
                 <button id="btnGenerate" class="btn-secondary">
+                    📝 Generate PRD
+                </button>
+            </div>
+            <div class="btn-row">
+                <button id="btnInit" class="btn-secondary">
+                    ⚙ Setup Agents
+                </button>
+            </div>
     </div>
 
     <div class="section">
@@ -855,6 +866,7 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
         document.getElementById('btnResume').addEventListener('click', () => send('resume'));
         document.getElementById('btnNext').addEventListener('click', () => send('next'));
         document.getElementById('btnGenerate').addEventListener('click', () => send('generatePrd'));
+        document.getElementById('btnInit').addEventListener('click', () => send('init'));
         document.getElementById('openPrdLink').addEventListener('click', () => send('openPrd'));
         document.getElementById('viewLogsLink').addEventListener('click', () => send('viewLogs'));
         

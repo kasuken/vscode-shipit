@@ -18,7 +18,8 @@ import {
     getNextUserStoryAsync,
     areAllUserStoriesCompleteAsync,
     getUserStoryStatsAsync,
-    readUserStoriesAsync
+    readUserStoriesAsync,
+    initializeProjectAsync
 } from './fileUtils';
 import { PilotFlowStatusBar } from './statusBar';
 import { CountdownTimer, InactivityMonitor } from './timerManager';
@@ -105,6 +106,12 @@ export class LoopOrchestrator {
         if (this.state === LoopExecutionState.RUNNING) {
             this.ui.addLog('Loop is already running');
             return;
+        }
+
+        // Auto-initialize project with custom agents if they don't exist
+        const initResult = await initializeProjectAsync();
+        if (initResult.filesCreated.length > 0) {
+            this.ui.addLog(`⚙️ Created agent files: ${initResult.filesCreated.join(', ')}`);
         }
 
         const stats = await getTaskStatsAsync();

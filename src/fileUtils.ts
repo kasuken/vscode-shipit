@@ -4,7 +4,8 @@ import * as fsPromises from 'fs/promises';
 
 import { Task, TaskStatus, TaskStats, UserStory, UserStoryStatus, UserStoryStats } from './types';
 import { getConfig } from './config';
-import { logError } from './logger';
+import { logError, log } from './logger';
+import { ALL_AGENT_TEMPLATES } from './agentTemplates';
 
 /**
  * Ensure a directory exists, creating it if necessary
@@ -440,4 +441,62 @@ export async function areAllUserStoriesCompleteAsync(taskId: string): Promise<bo
     const stories = await getUserStoriesForTaskAsync(taskId);
     if (stories.length === 0) { return false; }
     return stories.every(s => s.status === UserStoryStatus.COMPLETE);
+}
+
+/**
+ * Initialize project with PilotFlow agent files
+ * Copies custom agent templates to .github/agents/ folder
+ */
+export async function initializeProjectAsync(): Promise<{ success: boolean; filesCreated: string[]; errors: string[] }> {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        return { success: false, filesCreated: [], errors: ['No workspace folder open'] };
+    }
+
+    const workspaceRoot = workspaceFolders[0].uri.fsPath;
+    const agentsDir = path.join(workspaceRoot, '.github', 'agents');
+    
+    const filesCreated: string[] = [];
+    const errors: string[] = [];
+
+    try {
+        // Ensure .github/agents directory exists
+        await ensureDirectoryExists(agentsDir);
+        
+        // Copy each agent template
+        for (const template of ALL_AGENT_TEMPLATES) {
+            const targetPath = path.join(agentsDir, template.filename);
+            try {
+                // Check if file already exists
+                try {
+                    await vscode.workspace.fs.stat(vscode.Uri.file(targetPath));
+                    log(`Agent file already exists: ${template.filename}`);
+                    continue; // Skip existing files
+                } catch {
+                    // File doesn't exist, create it
+                }
+                
+                await vscode.workspace.fs.writeFile(
+                    vscode.Uri.file(targetPath),
+                    Buffer.from(template.content, 'utf8')
+                );
+                filesCreated.push(template.filename);
+                log(`Created agent file: ${template.filename}`);
+            } catch (err) {
+                const errorMsg = `Failed to create ${template.filename}: ${err}`;
+                errors.push(errorMsg);
+                logError(errorMsg);
+            }
+        }
+        
+        return { 
+            success: errors.length === 0, 
+            filesCreated, 
+            errors 
+        };
+    } catch (err) {
+        const errorMsg = `Failed to initialize project: ${err}`;
+        logError(errorMsg);
+        return { success: false, filesCreated, errors: [errorMsg] };
+    }
 }
