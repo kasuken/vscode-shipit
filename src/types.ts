@@ -25,6 +25,7 @@ export interface Task {
     status: TaskStatus;
     lineNumber: number;
     rawLine: string;
+    hasUserStories?: boolean;
 }
 
 /**
@@ -94,13 +95,15 @@ export const DEFAULT_REQUIREMENTS: TaskRequirements = {
  */
 export interface PilotFlowSettings {
     maxIterations: number;
+    userStoriesCountPerTask: number;
 }
 
 /**
  * Default settings
  */
 export const DEFAULT_SETTINGS: PilotFlowSettings = {
-    maxIterations: 50
+    maxIterations: 50,
+    userStoriesCountPerTask: 3
 };
 
 /**

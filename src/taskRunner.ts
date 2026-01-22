@@ -201,7 +201,7 @@ export class TaskRunner {
         this.log('✨ Generating user stories for task...');
 
         try {
-            const prompt = await buildUserStoriesGenerationPrompt(taskDescription, taskId);
+            const prompt = await buildUserStoriesGenerationPrompt(taskDescription, taskId, this.settings.userStoriesCountPerTask);
             const method = await openCopilotWithPrompt(prompt, { freshChat: true });
             this.log(
                 method === 'agent' ? 'Opened Copilot Agent Mode for user stories generation' :

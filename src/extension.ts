@@ -84,6 +84,18 @@ class PilotFlowExtension {
                 }
             }),
 
+            vscode.commands.registerCommand('pilotflow.generateUserStories', async (taskDescription?: string) => {
+                if (!taskDescription) {
+                    vscode.window.showErrorMessage('PilotFlow: No task specified');
+                    return;
+                }
+                await this.orchestrator.generateUserStoriesForTask(taskDescription);
+            }),
+
+            vscode.commands.registerCommand('pilotflow.generateAllUserStories', async () => {
+                await this.orchestrator.generateAllUserStories();
+            }),
+
             vscode.commands.registerCommand('pilotflow.viewLogs', () => {
                 showLogs();
             })

@@ -18,7 +18,8 @@ import {
     getNextUserStoryAsync,
     areAllUserStoriesCompleteAsync,
     getUserStoryStatsAsync,
-    readUserStoriesAsync
+    readUserStoriesAsync,
+    getAllTasksAsync
 } from './fileUtils';
 import { PilotFlowStatusBar } from './statusBar';
 import { CountdownTimer, InactivityMonitor } from './timerManager';
@@ -226,6 +227,145 @@ export class LoopOrchestrator {
     }
 
     /**
+     * Generate user stories for a specific task (on-demand)
+     */
+    async generateUserStoriesForTask(taskDescription: string): Promise<void> {
+        const root = getWorkspaceRoot();
+        if (!root) {
+            vscode.window.showErrorMessage('PilotFlow: No workspace folder open');
+            return;
+        }
+
+        // Check if stories already exist
+        const hasStories = await hasUserStoriesForTaskAsync(taskDescription);
+        if (hasStories) {
+            vscode.window.showInformationMessage('User stories already exist for this task');
+            return;
+        }
+
+        // Get task ID from PRD
+        const tasks = await getAllTasksAsync();
+        const task = tasks.find(t => t.description === taskDescription);
+        const taskId = task?.id || `task-${Date.now()}`;
+
+        this.ui.addLog(`📋 Generating user stories for: ${taskDescription}`);
+        await this.taskRunner.triggerUserStoriesGeneration(taskDescription, taskId);
+        
+        // Set up watcher and refresh UI when done
+        this.setupSingleUserStoriesWatcher(taskDescription);
+    }
+
+    /**
+     * Set up watcher for single task user stories creation (on-demand)
+     */
+    private setupSingleUserStoriesWatcher(taskDescription: string): void {
+        const root = getWorkspaceRoot();
+        if (!root) { return; }
+
+        this.fileWatchers.activityWatcher.start(async () => {
+            const hasStories = await hasUserStoriesForTaskAsync(taskDescription);
+            if (hasStories) {
+                this.ui.addLog(`✅ User stories created for: ${taskDescription}`, true);
+                this.fileWatchers.activityWatcher.dispose();
+                await this.ui.refresh();
+                vscode.window.showInformationMessage(`User stories created for task: ${taskDescription}`);
+            }
+        });
+        this.ui.addLog('👁️ Watching for user stories creation...');
+    }
+
+    // Track tasks needing stories for batch generation
+    private tasksNeedingStories: { id: string; description: string }[] = [];
+    private isGeneratingAllStories = false;
+
+    /**
+     * Generate user stories for all pending tasks without stories
+     */
+    async generateAllUserStories(): Promise<void> {
+        const root = getWorkspaceRoot();
+        if (!root) {
+            vscode.window.showErrorMessage('PilotFlow: No workspace folder open');
+            return;
+        }
+
+        if (this.isGeneratingAllStories) {
+            vscode.window.showInformationMessage('Already generating user stories. Please wait...');
+            return;
+        }
+
+        const tasks = await getAllTasksAsync();
+        const pendingTasks = tasks.filter(t => t.status !== 'COMPLETE');
+        
+        if (pendingTasks.length === 0) {
+            vscode.window.showInformationMessage('No pending tasks found');
+            return;
+        }
+
+        // Find tasks without user stories
+        this.tasksNeedingStories = [];
+        for (const task of pendingTasks) {
+            const hasStories = await hasUserStoriesForTaskAsync(task.description);
+            if (!hasStories) {
+                this.tasksNeedingStories.push({ id: task.id, description: task.description });
+            }
+        }
+
+        if (this.tasksNeedingStories.length === 0) {
+            vscode.window.showInformationMessage('All tasks already have user stories');
+            return;
+        }
+
+        this.isGeneratingAllStories = true;
+        this.ui.addLog(`📋 Generating user stories for ${this.tasksNeedingStories.length} task(s)...`);
+        
+        // Start with the first task
+        await this.generateNextBatchStory();
+    }
+
+    /**
+     * Generate stories for the next task in the batch
+     */
+    private async generateNextBatchStory(): Promise<void> {
+        if (this.tasksNeedingStories.length === 0) {
+            this.isGeneratingAllStories = false;
+            this.ui.addLog('✅ All user stories generated!', true);
+            await this.ui.refresh();
+            vscode.window.showInformationMessage('PilotFlow: All user stories generated!');
+            return;
+        }
+
+        const nextTask = this.tasksNeedingStories[0];
+        this.ui.addLog(`📝 Generating stories for: ${nextTask.description} (${this.tasksNeedingStories.length} remaining)`);
+        
+        await this.taskRunner.triggerUserStoriesGeneration(nextTask.description, nextTask.id);
+        this.setupBatchUserStoriesWatcher(nextTask.description);
+    }
+
+    /**
+     * Set up watcher for batch user stories creation
+     */
+    private setupBatchUserStoriesWatcher(taskDescription: string): void {
+        const root = getWorkspaceRoot();
+        if (!root) { return; }
+
+        this.fileWatchers.activityWatcher.start(async () => {
+            const hasStories = await hasUserStoriesForTaskAsync(taskDescription);
+            if (hasStories) {
+                this.ui.addLog(`✅ User stories created for: ${taskDescription}`, true);
+                this.fileWatchers.activityWatcher.dispose();
+                await this.ui.refresh();
+                
+                // Remove from queue and continue with next
+                this.tasksNeedingStories = this.tasksNeedingStories.filter(t => t.description !== taskDescription);
+                
+                // Wait a moment before starting the next one
+                setTimeout(() => this.generateNextBatchStory(), 2000);
+            }
+        });
+        this.ui.addLog('👁️ Watching for user stories creation...');
+    }
+
+    /**
      * Show status in a chat response stream
      */
     async showStatus(stream: vscode.ChatResponseStream): Promise<void> {
@@ -345,19 +485,60 @@ export class LoopOrchestrator {
         const hasStories = await hasUserStoriesForTaskAsync(task.description);
         
         if (!hasStories) {
-            // Generate user stories first
+            // No user stories - prompt user to generate them first
             this.ui.addLog(`📋 Task ${iteration}: ${task.description}`);
-            this.ui.addLog('Generating user stories for this task...');
-            this.isGeneratingUserStories = true;
-            this.isImplementingUserStory = false;
+            this.ui.addLog('⚠️ No user stories found for this task.', true);
             
-            await this.taskRunner.triggerUserStoriesGeneration(task.description, task.id);
+            const action = await vscode.window.showWarningMessage(
+                `No user stories found for task: "${task.description}". Generate user stories first or implement directly?`,
+                'Generate Stories',
+                'Implement Directly',
+                'Skip Task',
+                'Stop Loop'
+            );
             
-            // Set up watcher for user stories file creation
-            this.setupUserStoriesWatcher();
-            this.inactivityMonitor.setWaiting(true);
-            this.ui.updateStatus('waiting', iteration, `Generating stories for: ${task.description}`);
-            this.ui.addLog('Waiting for Copilot to create user stories...');
+            switch (action) {
+                case 'Generate Stories':
+                    // Generate stories and wait
+                    this.ui.addLog('Generating user stories for this task...');
+                    this.isGeneratingUserStories = true;
+                    this.isImplementingUserStory = false;
+                    
+                    await this.taskRunner.triggerUserStoriesGeneration(task.description, task.id);
+                    
+                    this.setupUserStoriesWatcher();
+                    this.inactivityMonitor.setWaiting(true);
+                    this.ui.updateStatus('waiting', iteration, `Generating stories for: ${task.description}`);
+                    this.ui.addLog('Waiting for Copilot to create user stories...');
+                    break;
+                    
+                case 'Implement Directly':
+                    // Implement task directly without user stories
+                    this.ui.addLog('Implementing task directly without user stories...');
+                    await this.taskRunner.triggerCopilotAgent(task.description);
+                    
+                    // Watch for PRD changes to detect task completion
+                    const currentPrdContent = await readPRDAsync() || '';
+                    this.fileWatchers.prdWatcher.updateContent(currentPrdContent);
+                    this.fileWatchers.prdWatcher.enable();
+                    
+                    this.inactivityMonitor.setWaiting(true);
+                    this.ui.updateStatus('waiting', iteration, task.description);
+                    this.ui.addLog('Waiting for task to be marked complete in PRD.md...');
+                    this.startPrdCompletionCheck();
+                    break;
+                    
+                case 'Skip Task':
+                    this.ui.addLog('Skipping task...');
+                    this.taskRunner.setCurrentTask('');
+                    await this.startCountdown();
+                    break;
+                    
+                case 'Stop Loop':
+                default:
+                    this.stopLoop();
+                    break;
+            }
         } else {
             // User stories exist, run the next one
             await this.runNextUserStory();

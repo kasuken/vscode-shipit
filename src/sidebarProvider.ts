@@ -58,6 +58,14 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
                 case 'generatePrd':
                     vscode.commands.executeCommand('pilotflow.generatePrd');
                     break;
+                case 'generateUserStories':
+                    if (data.taskDescription) {
+                        vscode.commands.executeCommand('pilotflow.generateUserStories', data.taskDescription);
+                    }
+                    break;
+                case 'generateAllUserStories':
+                    vscode.commands.executeCommand('pilotflow.generateAllUserStories');
+                    break;
                 case 'viewLogs':
                     vscode.commands.executeCommand('pilotflow.viewLogs');
                     break;
@@ -427,6 +435,29 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
             text-decoration: line-through;
             opacity: 0.7;
         }
+        .task-actions {
+            display: flex;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        .task-action-btn {
+            padding: 2px 6px;
+            font-size: 10px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            background: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+            white-space: nowrap;
+        }
+        .task-action-btn:hover {
+            opacity: 0.9;
+        }
+        .task-action-btn.has-stories {
+            background: var(--vscode-charts-green);
+            color: white;
+            cursor: default;
+        }
         .logs-container {
             max-height: 150px;
             overflow-y: auto;
@@ -539,6 +570,7 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
     <div class="section">
         <div class="section-title">
             Tasks 
+            <span id="generateAllStoriesLink" class="link" style="float: right; font-weight: normal; margin-right: 8px;">[Gen All Stories]</span>
             <span id="openPrdLink" class="link" style="float: right; font-weight: normal;">[Open PRD]</span>
         </div>
         <div id="taskList" class="task-list">
@@ -688,9 +720,11 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
 
         function renderTasks() {
             const container = document.getElementById('taskList');
+            const genAllLink = document.getElementById('generateAllStoriesLink');
             
             if (!state.tasks || state.tasks.length === 0) {
                 container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><div>No PRD found</div><div id="generatePrdLinkEmpty" class="link">Generate one</div></div>';
+                if (genAllLink) { genAllLink.style.display = 'none'; }
                 // Re-attach event listener for dynamically created link
                 const link = document.getElementById('generatePrdLinkEmpty');
                 if (link) {
@@ -699,9 +733,15 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
                 return;
             }
 
+            // Show/hide generate all stories link based on whether any tasks need stories
+            const tasksNeedingStories = state.tasks.filter(t => !t.hasUserStories && t.status !== 'COMPLETE');
+            if (genAllLink) {
+                genAllLink.style.display = tasksNeedingStories.length > 0 ? 'inline' : 'none';
+            }
+
             const isActive = state.status === 'running' || state.status === 'waiting';
 
-            const html = state.tasks.map(task => {
+            const html = state.tasks.map((task, index) => {
                 let checkboxClass = 'task-checkbox';
                 let textClass = 'task-text';
                 let icon = '';
@@ -735,10 +775,31 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
                     }
                 }
 
-                return '<div class="task-item"><div class="' + checkboxClass + '">' + icon + '</div><div class="' + textClass + '">' + escapeHtml(task.description) + '</div></div>';
+                // Generate story button - show for pending tasks without stories
+                let actionBtn = '';
+                if (task.status !== 'COMPLETE') {
+                    if (task.hasUserStories) {
+                        actionBtn = '<span class="task-action-btn has-stories" title="User stories exist">✓ Stories</span>';
+                    } else {
+                        actionBtn = '<button class="task-action-btn" data-task-index="' + index + '" title="Generate user stories for this task">+ Stories</button>';
+                    }
+                }
+
+                return '<div class="task-item"><div class="' + checkboxClass + '">' + icon + '</div><div class="' + textClass + '">' + escapeHtml(task.description) + '</div><div class="task-actions">' + actionBtn + '</div></div>';
             }).join('');
 
             container.innerHTML = html;
+
+            // Attach event listeners to story generation buttons
+            container.querySelectorAll('.task-action-btn:not(.has-stories)').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.getAttribute('data-task-index'), 10);
+                    const task = state.tasks[index];
+                    if (task) {
+                        vscode.postMessage({ type: 'generateUserStories', taskDescription: task.description });
+                    }
+                });
+            });
         }
 
         function renderUserStories() {
@@ -865,6 +926,12 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
         const generateLink = document.getElementById('generatePrdLink');
         if (generateLink) {
             generateLink.addEventListener('click', () => send('generatePrd'));
+        }
+
+        // For the generate all stories link
+        const generateAllStoriesLink = document.getElementById('generateAllStoriesLink');
+        if (generateAllStoriesLink) {
+            generateAllStoriesLink.addEventListener('click', () => send('generateAllUserStories'));
         }
         
         send('ready');

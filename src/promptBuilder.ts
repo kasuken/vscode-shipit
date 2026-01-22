@@ -252,12 +252,12 @@ Now create the PRD.md file based on the user's request above. Make the tasks spe
 /**
  * Build the prompt for generating user stories from a task
  */
-export async function buildUserStoriesGenerationPrompt(taskDescription: string, taskId: string): Promise<string> {
+export async function buildUserStoriesGenerationPrompt(taskDescription: string, taskId: string, storyCount: number = 3): Promise<string> {
     const sanitizedTask = sanitizeTaskDescription(taskDescription);
     const prd = await readPRDAsync() || '';
     const root = getWorkspaceRoot();
 
-    return `@workspace
+    return `
 
 ===================================================================
                   GENERATE USER STORIES FOR TASK
@@ -294,7 +294,7 @@ Add a new section with this EXACT format:
 ═══════════════════════════════════════════════════════════════
 
 1. **User Story Format**: Each story MUST use \`- [ ] \` checkbox format
-2. **Keep it focused**: Generate 5-8 user stories per task
+2. **Keep it focused**: Generate exactly ${storyCount} user stories for this task
 3. **Logical Order**: Order stories so they can be completed sequentially
 4. **Atomic Stories**: Each story should be completable in one agent session
 5. **Clear Acceptance**: Each story should have a clear definition of done

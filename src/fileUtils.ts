@@ -194,10 +194,53 @@ export async function parseTasksAsync(): Promise<Task[]> {
 }
 
 /**
- * Get all tasks from the PRD
+ * Get all tasks from the PRD (with user story status)
  */
 export async function getAllTasksAsync(): Promise<Task[]> {
-    return await parseTasksAsync();
+    const tasks = await parseTasksAsync();
+    
+    // Enrich tasks with user story information
+    const userStoriesContent = await readUserStoriesAsync();
+    
+    for (const task of tasks) {
+        task.hasUserStories = userStoriesContent 
+            ? hasUserStoriesInContent(userStoriesContent, task.description)
+            : false;
+    }
+    
+    return tasks;
+}
+
+/**
+ * Check if user stories exist for a task in the content
+ */
+function hasUserStoriesInContent(content: string, taskDescription: string): boolean {
+    const escapedTask = escapeRegExp(taskDescription);
+    const taskSectionPattern = new RegExp(`^##\\s+Task:\\s*${escapedTask}`, 'im');
+    
+    if (!taskSectionPattern.test(content)) {
+        return false;
+    }
+    
+    // Find the section and check if it has any user stories
+    const lines = content.split('\n');
+    let inTaskSection = false;
+    
+    for (const line of lines) {
+        if (line.match(/^##\s+Task:/i)) {
+            inTaskSection = taskSectionPattern.test(line);
+            continue;
+        }
+        
+        if (!inTaskSection) { continue; }
+        
+        // Found a user story in this section
+        if (/^[-*]\s*\[([ x~])\]\s*(.+)$/im.test(line)) {
+            return true;
+        }
+    }
+    
+    return false;
 }
 
 /**

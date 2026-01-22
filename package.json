@@ -78,6 +78,14 @@
         "title": "PilotFlow: Generate PRD from Description"
       },
       {
+        "command": "pilotflow.generateUserStories",
+        "title": "PilotFlow: Generate User Stories for Task"
+      },
+      {
+        "command": "pilotflow.generateAllUserStories",
+        "title": "PilotFlow: Generate All User Stories"
+      },
+      {
         "command": "pilotflow.viewLogs",
         "title": "PilotFlow: View Logs"
       }
@@ -106,6 +114,13 @@
           "default": "",
           "editPresentation": "multilineText",
           "description": "Custom PRD generation prompt template. Use {{task}} for user's request and {{workspace}} for workspace path."
+        },
+        "pilotflow.userStories.countPerTask": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Number of user stories to generate per task"
         }
       }
     }
