@@ -109,7 +109,6 @@ export async function buildAgentPromptAsync(taskDescription: string, requirement
     }
 
     const parts: string[] = [
-        '@workspace',
         '',
         '===================================================================',
         '                       YOUR TASK TO IMPLEMENT',
@@ -192,7 +191,7 @@ export function buildPrdGenerationPrompt(taskDescription: string, workspaceRoot:
         });
     }
 
-    return `@workspace
+    return `
 
 ===================================================================
                        CREATE PRD.md FILE
@@ -334,7 +333,6 @@ export async function buildUserStoryImplementationPrompt(
     const root = getWorkspaceRoot();
 
     const parts: string[] = [
-        '@workspace',
         '',
         '===================================================================',
         '                    USER STORY TO IMPLEMENT',
