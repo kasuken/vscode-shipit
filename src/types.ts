@@ -128,6 +128,7 @@ export interface IPilotFlowUI {
     updateSessionTiming(startTime: number, taskHistory: TaskCompletion[], pendingTasks: number): void;
     updateStats(): void | Promise<void>;
     refresh(): void | Promise<void>;
+    setActiveTask?(taskDescription: string): void;
     addLog(message: string, highlight?: boolean): void;
     showPrdGenerating(): void;
 }

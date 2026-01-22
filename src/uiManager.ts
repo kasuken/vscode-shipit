@@ -101,6 +101,13 @@ export class UIManager {
     }
 
     /**
+     * Set the active task description (the parent PRD task)
+     */
+    setActiveTask(taskDescription: string): void {
+        this.sidebarView?.setActiveTask?.(taskDescription);
+    }
+
+    /**
      * Add a log message
      */
     addLog(message: string, highlight: boolean = false): void {

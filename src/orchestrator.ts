@@ -172,10 +172,14 @@ export class LoopOrchestrator {
         this.fileWatchers.dispose();
         this.countdownTimer.stop();
         this.inactivityMonitor.stop();
+        this.stopPrdCompletionCheck();
 
         this.state = LoopExecutionState.IDLE;
         this.isPaused = false;
+        this.currentTaskDescription = '';
+        this.currentTaskId = '';
 
+        this.ui.setActiveTask('');
         this.ui.updateStatus('idle', this.taskRunner.getIterationCount(), this.taskRunner.getCurrentTask());
         this.ui.updateCountdown(0);
         this.ui.updateSessionTiming(0, this.taskRunner.getTaskHistory(), 0);
@@ -321,6 +325,7 @@ export class LoopOrchestrator {
         this.currentTaskDescription = task.description;
         this.ui.setIteration(iteration);
         this.ui.setTaskInfo(task.description);
+        this.ui.setActiveTask(task.description);
         this.ui.updateStatus('running', iteration, task.description);
 
         // Check if user stories exist for this task
@@ -359,6 +364,21 @@ export class LoopOrchestrator {
         
         if (allComplete) {
             this.ui.addLog(`✅ All user stories complete for task: ${this.currentTaskDescription}`, true);
+            
+            // First check if the task is already marked complete in PRD
+            const task = await getNextTaskAsync();
+            if (!task || task.description !== this.currentTaskDescription) {
+                // Task already marked complete, move to next
+                this.ui.addLog('Task already marked complete in PRD.md', true);
+                
+                const completion = this.taskRunner.recordTaskCompletion();
+                await appendProgressAsync(`✅ Completed: ${completion.taskDescription} (took ${Math.round(completion.duration / 1000)}s)`);
+                this.ui.updateHistory(this.taskRunner.getTaskHistory());
+                
+                await this.startCountdown();
+                return;
+            }
+            
             this.ui.addLog('Task is ready to be marked complete in PRD.md');
             
             // Mark the task complete in PRD.md - trigger agent to do this
@@ -366,10 +386,17 @@ export class LoopOrchestrator {
                 `Mark the following task as complete in PRD.md by changing "- [ ]" to "- [x]": ${this.currentTaskDescription}`
             );
             
+            // Refresh PRD content before enabling watcher
+            const currentPrdContent = await readPRDAsync() || '';
+            this.fileWatchers.prdWatcher.updateContent(currentPrdContent);
             this.fileWatchers.prdWatcher.enable();
+            
             this.inactivityMonitor.setWaiting(true);
             this.ui.updateStatus('waiting', this.taskRunner.getIterationCount(), this.currentTaskDescription);
             this.ui.addLog('Waiting for task to be marked complete in PRD.md...');
+            
+            // Start periodic check as backup for file watcher
+            this.startPrdCompletionCheck();
             return;
         }
 
@@ -395,6 +422,46 @@ export class LoopOrchestrator {
         this.inactivityMonitor.setWaiting(true);
         this.ui.updateStatus('waiting', this.taskRunner.getIterationCount(), story.description);
         this.ui.addLog('Waiting for Copilot to complete user story and update userstories.md...');
+    }
+
+    /**
+     * Periodically check if task was marked complete in PRD
+     */
+    private prdCheckInterval: NodeJS.Timeout | null = null;
+
+    private startPrdCompletionCheck(): void {
+        this.stopPrdCompletionCheck();
+        
+        this.prdCheckInterval = setInterval(async () => {
+            if (this.state !== LoopExecutionState.RUNNING || this.isPaused) {
+                this.stopPrdCompletionCheck();
+                return;
+            }
+            
+            const task = await getNextTaskAsync();
+            if (!task || task.description !== this.currentTaskDescription) {
+                // Task was marked complete
+                this.stopPrdCompletionCheck();
+                this.fileWatchers.prdWatcher.disable();
+                this.inactivityMonitor.stop();
+                
+                this.ui.addLog('✅ Task marked complete in PRD.md!', true);
+                
+                const completion = this.taskRunner.recordTaskCompletion();
+                await appendProgressAsync(`✅ Completed: ${completion.taskDescription} (took ${Math.round(completion.duration / 1000)}s)`);
+                this.ui.updateHistory(this.taskRunner.getTaskHistory());
+                await this.updatePanelTiming();
+                
+                await this.startCountdown();
+            }
+        }, 2000); // Check every 2 seconds
+    }
+
+    private stopPrdCompletionCheck(): void {
+        if (this.prdCheckInterval) {
+            clearInterval(this.prdCheckInterval);
+            this.prdCheckInterval = null;
+        }
     }
 
     /**

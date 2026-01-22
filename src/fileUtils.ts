@@ -36,24 +36,32 @@ export function getWorkspaceRoot(): string | null {
 export async function readPRDAsync(): Promise<string | null> {
     const config = getConfig();
     const root = getWorkspaceRoot();
-    if (!root) { return null; }
+    if (!root) { 
+        console.log('[PilotFlow] No workspace root found');
+        return null; 
+    }
 
     const prdPath = path.join(root, config.files.prdPath);
+    console.log('[PilotFlow] Looking for PRD at:', prdPath);
     
     // Try configured path first
     try {
         await fsPromises.access(prdPath);
+        console.log('[PilotFlow] Found PRD at configured path');
         return await fsPromises.readFile(prdPath, 'utf-8');
     } catch {
-        // Configured path not found, try fallback to root PRD.md
+        console.log('[PilotFlow] PRD not found at configured path, trying fallback');
     }
 
     // Fallback: check for PRD.md at root
     const fallbackPath = path.join(root, 'PRD.md');
+    console.log('[PilotFlow] Looking for PRD at fallback:', fallbackPath);
     try {
         await fsPromises.access(fallbackPath);
+        console.log('[PilotFlow] Found PRD at fallback path');
         return await fsPromises.readFile(fallbackPath, 'utf-8');
     } catch (error) {
+        console.log('[PilotFlow] PRD not found at fallback path either');
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
             logError('Failed to read PRD.md', error);
         }

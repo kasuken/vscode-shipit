@@ -13,6 +13,7 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
     private _status: string = 'idle';
     private _iteration: number = 0;
     private _currentTask: string = '';
+    private _activeTaskDescription: string = '';
     private _countdown: number = 0;
     private _history: TaskCompletion[] = [];
     private _logs: string[] = [];
@@ -155,6 +156,11 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
         this._sendUpdate();
     }
 
+    setActiveTask(taskDescription: string): void {
+        this._activeTaskDescription = taskDescription;
+        this._sendUpdate();
+    }
+
     /**
      * Send full state to webview
      */
@@ -166,6 +172,7 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
             status: this._status,
             iteration: this._iteration,
             currentTask: this._currentTask,
+            activeTaskDescription: this._activeTaskDescription,
             countdown: this._countdown,
             history: this._history,
             logs: this._logs,
@@ -190,6 +197,7 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
             status: this._status,
             iteration: this._iteration,
             currentTask: this._currentTask,
+            activeTaskDescription: this._activeTaskDescription,
             countdown: this._countdown,
             history: this._history,
             logs: this._logs,
@@ -480,6 +488,13 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
         </div>
     </div>
 
+    <div id="elapsedSection" class="section hidden">
+        <div class="current-task" style="text-align: center; padding: 8px;">
+            <div class="current-task-label">Elapsed Time</div>
+            <div id="elapsedTime" style="font-size: 18px; font-weight: 600;">00:00:00</div>
+        </div>
+    </div>
+
     <div id="countdownSection" class="section countdown">
         <div class="countdown-value" id="countdownValue">0</div>
         <div class="countdown-label">Next task in seconds</div>
@@ -561,12 +576,45 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
             status: 'idle',
             iteration: 0,
             currentTask: '',
+            activeTaskDescription: '',
             countdown: 0,
+            sessionStartTime: 0,
             stats: { total: 0, completed: 0, pending: 0 },
             tasks: [],
             userStories: [],
             logs: []
         };
+
+        // Elapsed time timer
+        let elapsedTimer = null;
+
+        function formatElapsedTime(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            return String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+        }
+
+        function updateElapsedTime() {
+            if (state.sessionStartTime > 0) {
+                const elapsed = Date.now() - state.sessionStartTime;
+                document.getElementById('elapsedTime').textContent = formatElapsedTime(elapsed);
+            }
+        }
+
+        function startElapsedTimer() {
+            if (elapsedTimer) { clearInterval(elapsedTimer); }
+            elapsedTimer = setInterval(updateElapsedTime, 1000);
+            updateElapsedTime();
+        }
+
+        function stopElapsedTimer() {
+            if (elapsedTimer) {
+                clearInterval(elapsedTimer);
+                elapsedTimer = null;
+            }
+        }
 
         // Update UI based on state
         function updateUI() {
@@ -585,6 +633,17 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
             document.getElementById('completedCount').textContent = state.stats.completed || 0;
             document.getElementById('pendingCount').textContent = state.stats.pending || 0;
             document.getElementById('iterationCount').textContent = state.iteration;
+
+            // Elapsed time
+            const elapsedSection = document.getElementById('elapsedSection');
+            const isActive = state.status === 'running' || state.status === 'waiting' || state.status === 'paused';
+            if (isActive && state.sessionStartTime > 0) {
+                elapsedSection.classList.remove('hidden');
+                startElapsedTimer();
+            } else {
+                elapsedSection.classList.add('hidden');
+                stopElapsedTimer();
+            }
 
             // Countdown
             const countdownSection = document.getElementById('countdownSection');
@@ -645,7 +704,9 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
                 let icon = '';
                 
                 // Check if this task is the current one being worked on
-                const isCurrentTask = isActive && state.currentTask && task.description === state.currentTask;
+                // Use activeTaskDescription which always contains the parent task
+                const isCurrentTask = isActive && state.activeTaskDescription && 
+                    task.description === state.activeTaskDescription;
                 
                 if (isCurrentTask && task.status !== 'COMPLETE') {
                     // Override to show as in-progress
@@ -763,6 +824,7 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
                 state.status = message.status || state.status;
                 state.iteration = message.iteration || 0;
                 state.currentTask = message.currentTask || '';
+                state.activeTaskDescription = message.activeTaskDescription || state.activeTaskDescription;
                 state.countdown = message.countdown || 0;
                 state.logs = message.logs || state.logs;
                 
@@ -774,6 +836,9 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
                 }
                 if (message.userStories) {
                     state.userStories = message.userStories;
+                }
+                if (message.sessionStartTime !== undefined) {
+                    state.sessionStartTime = message.sessionStartTime;
                 }
                 
                 updateUI();
