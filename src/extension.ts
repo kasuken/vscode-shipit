@@ -3,7 +3,7 @@ import { PilotFlowStatusBar } from './statusBar';
 import { LoopOrchestrator } from './orchestrator';
 import { PilotFlowSidebarProvider } from './sidebarProvider';
 import { log, disposeLogger, showLogs } from './logger';
-import { getTaskStatsAsync, getNextTaskAsync, initializeProjectAsync } from './fileUtils';
+import { getTaskStatsAsync, getNextTaskAsync } from './fileUtils';
 
 /**
  * Main PilotFlow extension class
@@ -86,23 +86,6 @@ class PilotFlowExtension {
 
             vscode.commands.registerCommand('pilotflow.viewLogs', () => {
                 showLogs();
-            }),
-
-            vscode.commands.registerCommand('pilotflow.init', async () => {
-                const result = await initializeProjectAsync();
-                if (result.success && result.filesCreated.length > 0) {
-                    vscode.window.showInformationMessage(
-                        `PilotFlow initialized! Created agent files: ${result.filesCreated.join(', ')}`
-                    );
-                } else if (result.success && result.filesCreated.length === 0) {
-                    vscode.window.showInformationMessage(
-                        'PilotFlow agents already exist in this project.'
-                    );
-                } else {
-                    vscode.window.showErrorMessage(
-                        `PilotFlow initialization failed: ${result.errors.join(', ')}`
-                    );
-                }
             })
         );
     }

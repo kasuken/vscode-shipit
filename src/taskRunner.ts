@@ -9,7 +9,7 @@ import {
 import { logError } from './logger';
 import { getWorkspaceRoot } from './fileUtils';
 import { buildAgentPromptAsync, buildPrdGenerationPrompt, buildUserStoriesGenerationPrompt, buildUserStoryImplementationPrompt } from './promptBuilder';
-import { openCopilotWithPrompt, startFreshChatSession, CopilotResult } from './copilotIntegration';
+import { openCopilotWithPrompt, CopilotResult } from './copilotIntegration';
 import { formatDuration } from './timerManager';
 
 export type LogCallback = (message: string, highlight?: boolean) => void;
@@ -150,14 +150,7 @@ export class TaskRunner {
     async triggerCopilotAgent(taskDescription: string): Promise<CopilotResult | null> {
         try {
             const prompt = await buildAgentPromptAsync(taskDescription, this.requirements);
-
-            // Always start fresh chat session
-            const success = await startFreshChatSession();
-            if (success) {
-                this.log('Started fresh chat session');
-            }
-
-            const method = await openCopilotWithPrompt(prompt);
+            const method = await openCopilotWithPrompt(prompt, { freshChat: true });
             this.log(
                 method === 'agent' ? 'Opened Copilot Agent Mode' :
                     method === 'chat' ? 'Opened Copilot Chat' :
@@ -186,7 +179,7 @@ export class TaskRunner {
 
         try {
             const prompt = buildPrdGenerationPrompt(taskDescription, root);
-            const method = await openCopilotWithPrompt(prompt);
+            const method = await openCopilotWithPrompt(prompt, { freshChat: true });
             this.log(
                 method === 'agent' ? 'Opened Copilot Agent Mode' :
                     method === 'chat' ? 'Opened Copilot Chat' :
@@ -209,13 +202,7 @@ export class TaskRunner {
 
         try {
             const prompt = await buildUserStoriesGenerationPrompt(taskDescription, taskId);
-
-            const success = await startFreshChatSession();
-            if (success) {
-                this.log('Started fresh chat session');
-            }
-
-            const method = await openCopilotWithPrompt(prompt);
+            const method = await openCopilotWithPrompt(prompt, { freshChat: true });
             this.log(
                 method === 'agent' ? 'Opened Copilot Agent Mode for user stories generation' :
                     method === 'chat' ? 'Opened Copilot Chat for user stories generation' :
@@ -244,12 +231,7 @@ export class TaskRunner {
                 this.requirements
             );
 
-            const success = await startFreshChatSession();
-            if (success) {
-                this.log('Started fresh chat session');
-            }
-
-            const method = await openCopilotWithPrompt(prompt);
+            const method = await openCopilotWithPrompt(prompt, { freshChat: true });
             this.log(
                 method === 'agent' ? 'Opened Copilot Agent Mode' :
                     method === 'chat' ? 'Opened Copilot Chat' :

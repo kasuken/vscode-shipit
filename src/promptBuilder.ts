@@ -109,7 +109,7 @@ export async function buildAgentPromptAsync(taskDescription: string, requirement
     }
 
     const parts: string[] = [
-        '@story-implementer',
+        '@workspace',
         '',
         '===================================================================',
         '                       YOUR TASK TO IMPLEMENT',
@@ -192,11 +192,13 @@ export function buildPrdGenerationPrompt(taskDescription: string, workspaceRoot:
         });
     }
 
-    return `@prd-generator
+    return `@workspace
 
 ===================================================================
                        CREATE PRD.md FILE
 ===================================================================
+
+You are a PRD Generator. Your role is to create clear, actionable PRD files.
 
 The user wants to build something. Your job is to create a PRD.md file with a structured task list.
 
@@ -256,13 +258,13 @@ export async function buildUserStoriesGenerationPrompt(taskDescription: string, 
     const prd = await readPRDAsync() || '';
     const root = getWorkspaceRoot();
 
-    return `@story-generator
+    return `@workspace
 
 ===================================================================
                   GENERATE USER STORIES FOR TASK
 ===================================================================
 
-You need to break down a task into smaller, implementable user stories.
+You are a User Story Generator. Your role is to break down tasks into smaller, implementable user stories.
 
 ## TASK TO BREAK DOWN:
 ${sanitizedTask}
@@ -332,7 +334,7 @@ export async function buildUserStoryImplementationPrompt(
     const root = getWorkspaceRoot();
 
     const parts: string[] = [
-        '@story-implementer',
+        '@workspace',
         '',
         '===================================================================',
         '                    USER STORY TO IMPLEMENT',
