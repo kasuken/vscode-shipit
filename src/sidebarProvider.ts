@@ -637,27 +637,38 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
                 return;
             }
 
+            const isActive = state.status === 'running' || state.status === 'waiting';
+
             const html = state.tasks.map(task => {
                 let checkboxClass = 'task-checkbox';
                 let textClass = 'task-text';
                 let icon = '';
                 
-                switch (task.status) {
-                    case 'COMPLETE':
-                        checkboxClass += ' completed';
-                        textClass += ' completed';
-                        icon = '✓';
-                        break;
-                    case 'BLOCKED':
-                        checkboxClass += ' blocked';
-                        icon = '!';
-                        break;
-                    case 'IN_PROGRESS':
-                        checkboxClass += ' in-progress';
-                        icon = '~';
-                        break;
-                    default:
-                        icon = '';
+                // Check if this task is the current one being worked on
+                const isCurrentTask = isActive && state.currentTask && task.description === state.currentTask;
+                
+                if (isCurrentTask && task.status !== 'COMPLETE') {
+                    // Override to show as in-progress
+                    checkboxClass += ' in-progress';
+                    icon = '~';
+                } else {
+                    switch (task.status) {
+                        case 'COMPLETE':
+                            checkboxClass += ' completed';
+                            textClass += ' completed';
+                            icon = '✓';
+                            break;
+                        case 'BLOCKED':
+                            checkboxClass += ' blocked';
+                            icon = '!';
+                            break;
+                        case 'IN_PROGRESS':
+                            checkboxClass += ' in-progress';
+                            icon = '~';
+                            break;
+                        default:
+                            icon = '';
+                    }
                 }
 
                 return '<div class="task-item"><div class="' + checkboxClass + '">' + icon + '</div><div class="' + textClass + '">' + escapeHtml(task.description) + '</div></div>';
