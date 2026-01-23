@@ -1,14 +1,14 @@
 # PilotFlow - Autonomous PRD Development
 
-**PilotFlow** runs AI coding agents in a loop. It reads a PRD (Product Requirements Document), picks tasks, implements them one at a time using GitHub Copilot Agent Mode, and continues until everything is done.
+**PilotFlow** runs AI coding agents in a loop. It reads a PRD (Product Requirements Document), picks tasks, implements them one at a time using the GitHub Copilot SDK, and continues until everything is done.
 
-> ⚠️ **EXPERIMENTAL** - This extension relies on internal VS Code workbench commands (`workbench.action.chat.newEditSession`, `workbench.action.chat.open`) that are not part of the official public API. These commands may change or be removed in any VS Code update.
+> ⚠️ **EXPERIMENTAL** - This extension uses the `@github/copilot-sdk` which is in Technical Preview. The SDK requires the GitHub Copilot CLI to be installed and authenticated.
 
 ## Features
 
 - **Sidebar Control Panel** - Full control from the Activity Bar with real-time status
 - **Autonomous Task Execution** - Automatically works through your PRD task list
-- **Copilot Agent Mode Integration** - Sends tasks to Copilot with full project context
+- **Copilot SDK Integration** - Uses the official Copilot SDK for programmatic agent control
 - **Progress Tracking** - Visual status bar and sidebar show progress and current task
 - **File Watching** - Automatically detects when Copilot marks tasks complete in PRD.md
 - **Inactivity Detection** - Prompts you if Copilot seems stuck
@@ -150,7 +150,11 @@ User stories are organized by task in `userstories.md`:
 ## Requirements
 
 - VS Code 1.93 or later
-- GitHub Copilot Chat extension installed and authenticated
+- GitHub Copilot CLI installed and authenticated
+  - Follow the [installation guide](https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli)
+  - Verify by running `copilot --version` in a terminal
+- Node.js 18.0 or later
+- A valid GitHub Copilot subscription
 
 ## Architecture
 
@@ -159,11 +163,11 @@ src/
 ├── extension.ts        # Main entry point
 ├── orchestrator.ts     # Main loop orchestration
 ├── taskRunner.ts       # Task execution logic
+├── copilotSdk.ts       # Copilot SDK integration
 ├── sidebarProvider.ts  # Sidebar webview provider
 ├── fileUtils.ts        # PRD parsing and file operations
 ├── fileWatchers.ts     # File change detection
 ├── timerManager.ts     # Countdown and inactivity timers
-├── copilotIntegration.ts  # Copilot command integration
 ├── promptBuilder.ts    # Prompt construction
 ├── statusBar.ts        # Status bar UI
 ├── uiManager.ts        # UI coordination

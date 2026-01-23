@@ -108,6 +108,13 @@ export class LoopOrchestrator {
             return;
         }
 
+        // Start the Copilot SDK service
+        const copilotStarted = await this.taskRunner.startCopilotService();
+        if (!copilotStarted) {
+            this.ui.addLog('Failed to start Copilot SDK service. Please ensure Copilot CLI is installed.');
+            return;
+        }
+
         const stats = await getTaskStatsAsync();
         if (stats.pending === 0) {
             this.ui.addLog('No pending tasks found. Add tasks to PRD.md first.');
@@ -174,6 +181,9 @@ export class LoopOrchestrator {
         this.countdownTimer.stop();
         this.inactivityMonitor.stop();
         this.stopPrdCompletionCheck();
+
+        // Abort any current Copilot operation
+        await this.taskRunner.abortCopilot();
 
         this.state = LoopExecutionState.IDLE;
         this.isPaused = false;
@@ -249,10 +259,14 @@ export class LoopOrchestrator {
         const taskId = task?.id || `task-${Date.now()}`;
 
         this.ui.addLog(`📋 Generating user stories for: ${taskDescription}`);
-        await this.taskRunner.triggerUserStoriesGeneration(taskDescription, taskId);
+        await this.taskRunner.triggerUserStoriesGeneration(taskDescription, taskId, async () => {
+            // Called when generation completes
+            this.ui.addLog(`✅ User stories created for: ${taskDescription}`, true);
+            await this.ui.refresh();
+            vscode.window.showInformationMessage(`User stories created for task: ${taskDescription}`);
+        });
         
-        // Set up watcher and refresh UI when done
-        this.setupSingleUserStoriesWatcher(taskDescription);
+        this.ui.addLog('⏳ Copilot is generating user stories...');
     }
 
     /**
@@ -337,8 +351,23 @@ export class LoopOrchestrator {
         const nextTask = this.tasksNeedingStories[0];
         this.ui.addLog(`📝 Generating stories for: ${nextTask.description} (${this.tasksNeedingStories.length} remaining)`);
         
-        await this.taskRunner.triggerUserStoriesGeneration(nextTask.description, nextTask.id);
-        this.setupBatchUserStoriesWatcher(nextTask.description);
+        await this.taskRunner.triggerUserStoriesGeneration(nextTask.description, nextTask.id, async () => {
+            // Called when generation completes
+            this.ui.addLog(`✅ User stories created for: ${nextTask.description}`, true);
+            await this.ui.refresh();
+            
+            // Remove from queue and continue with next
+            this.tasksNeedingStories = this.tasksNeedingStories.filter(t => t.description !== nextTask.description);
+            
+            // Wait a moment before starting the next one
+            setTimeout(async () => {
+                if (this.isGeneratingAllStories) {
+                    await this.generateNextBatchStory();
+                }
+            }, 1000);
+        });
+        
+        this.ui.addLog('⏳ Copilot is generating user stories...');
     }
 
     /**
@@ -395,8 +424,9 @@ export class LoopOrchestrator {
     /**
      * Dispose resources
      */
-    dispose(): void {
-        this.stopLoop();
+    async dispose(): Promise<void> {
+        await this.stopLoop();
+        await this.taskRunner.stopCopilotService();
     }
 
     /**
@@ -504,12 +534,23 @@ export class LoopOrchestrator {
                     this.isGeneratingUserStories = true;
                     this.isImplementingUserStory = false;
                     
-                    await this.taskRunner.triggerUserStoriesGeneration(task.description, task.id);
+                    await this.taskRunner.triggerUserStoriesGeneration(task.description, task.id, async () => {
+                        // Called when generation completes
+                        this.ui.addLog('✅ User stories created', true);
+                        this.isGeneratingUserStories = false;
+                        await this.ui.refresh();
+                        
+                        // Continue with implementing the stories
+                        setTimeout(async () => {
+                            if (this.state === LoopExecutionState.RUNNING && !this.isPaused) {
+                                await this.runNextUserStory();
+                            }
+                        }, 1000);
+                    });
                     
-                    this.setupUserStoriesWatcher();
                     this.inactivityMonitor.setWaiting(true);
                     this.ui.updateStatus('waiting', iteration, `Generating stories for: ${task.description}`);
-                    this.ui.addLog('Waiting for Copilot to create user stories...');
+                    this.ui.addLog('Copilot is creating user stories...');
                     break;
                     
                 case 'Implement Directly':
@@ -609,13 +650,29 @@ export class LoopOrchestrator {
         
         this.ui.addLog(`📖 User Story (${storyStats.completed + 1}/${storyStats.total}): ${story.description}`);
         
-        await this.taskRunner.triggerUserStoryImplementation(story.description, this.currentTaskDescription);
+        await this.taskRunner.triggerUserStoryImplementation(
+            story.description, 
+            this.currentTaskDescription,
+            async () => {
+                // This callback is called when the user story implementation is complete
+                this.ui.addLog('✅ User story implementation completed');
+                this.isImplementingUserStory = false;
+                this.currentUserStoryDescription = '';
+                
+                // Schedule next user story (use setTimeout to avoid blocking)
+                setTimeout(async () => {
+                    if (this.state === LoopExecutionState.RUNNING && !this.isPaused) {
+                        await this.runNextUserStory();
+                    }
+                }, 1000);
+            }
+        );
         
-        // Watch for user stories file changes
+        // Watch for user stories file changes (as backup)
         this.setupUserStoriesWatcher();
         this.inactivityMonitor.setWaiting(true);
         this.ui.updateStatus('waiting', this.taskRunner.getIterationCount(), story.description);
-        this.ui.addLog('Waiting for Copilot to complete user story and update userstories.md...');
+        this.ui.addLog('Copilot is implementing user story...');
     }
 
     /**

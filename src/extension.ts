@@ -36,7 +36,10 @@ class PilotFlowExtension {
         this.registerCommands();
 
         context.subscriptions.push({
-            dispose: () => this.dispose()
+            dispose: () => {
+                // Handle async dispose - fire and forget since VS Code dispose is sync
+                this.disposeAsync().catch(() => { /* ignore errors */ });
+            }
         });
 
         log('PilotFlow extension activated');
@@ -153,10 +156,17 @@ class PilotFlowExtension {
     }
 
     /**
-     * Dispose resources
+     * Dispose resources (sync)
      */
     dispose(): void {
-        this.orchestrator.dispose();
+        this.disposeAsync().catch(() => { /* ignore errors */ });
+    }
+
+    /**
+     * Dispose resources (async)
+     */
+    private async disposeAsync(): Promise<void> {
+        await this.orchestrator.dispose();
         disposeLogger();
     }
 }

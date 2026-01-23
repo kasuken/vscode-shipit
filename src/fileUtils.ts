@@ -484,3 +484,65 @@ export async function areAllUserStoriesCompleteAsync(taskId: string): Promise<bo
     if (stories.length === 0) { return false; }
     return stories.every(s => s.status === UserStoryStatus.COMPLETE);
 }
+
+/**
+ * Mark a user story as complete in userstories.md
+ * Changes "- [ ]" to "- [x]" for the matching story
+ */
+export async function markUserStoryCompleteAsync(storyDescription: string): Promise<boolean> {
+    const root = getWorkspaceRoot();
+    if (!root) { return false; }
+
+    const storiesPath = path.join(root, '.pilotflow', 'userstories.md');
+    
+    try {
+        const content = await fsPromises.readFile(storiesPath, 'utf-8');
+        
+        // Escape special regex characters in the description
+        const escapedDesc = storyDescription.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        
+        // Match "- [ ]" or "- [-]" followed by the story description
+        const regex = new RegExp(`(- \\[[ -]\\] )${escapedDesc}`, 'g');
+        const newContent = content.replace(regex, `- [x] ${storyDescription}`);
+        
+        if (newContent !== content) {
+            await fsPromises.writeFile(storiesPath, newContent, 'utf-8');
+            return true;
+        }
+        return false;
+    } catch (error) {
+        logError('Failed to mark user story complete', error);
+        return false;
+    }
+}
+
+/**
+ * Mark a task as complete in PRD.md
+ * Changes "- [ ]" to "- [x]" for the matching task
+ */
+export async function markTaskCompleteAsync(taskDescription: string): Promise<boolean> {
+    const root = getWorkspaceRoot();
+    if (!root) { return false; }
+
+    const prdPath = path.join(root, 'PRD.md');
+    
+    try {
+        const content = await fsPromises.readFile(prdPath, 'utf-8');
+        
+        // Escape special regex characters in the description
+        const escapedDesc = taskDescription.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        
+        // Match "- [ ]" followed by the task description
+        const regex = new RegExp(`(- \\[ \\] )${escapedDesc}`, 'g');
+        const newContent = content.replace(regex, `- [x] ${taskDescription}`);
+        
+        if (newContent !== content) {
+            await fsPromises.writeFile(prdPath, newContent, 'utf-8');
+            return true;
+        }
+        return false;
+    } catch (error) {
+        logError('Failed to mark task complete', error);
+        return false;
+    }
+}

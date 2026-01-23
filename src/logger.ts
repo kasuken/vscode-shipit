@@ -21,6 +21,14 @@ export function log(message: string): void {
 }
 
 /**
+ * Log an info message to the output channel
+ */
+export function logInfo(message: string): void {
+    const timestamp = new Date().toISOString();
+    getLogger().appendLine(`[${timestamp}] ℹ️ INFO: ${message}`);
+}
+
+/**
  * Log an error to the output channel
  */
 export function logError(message: string, error?: unknown): void {

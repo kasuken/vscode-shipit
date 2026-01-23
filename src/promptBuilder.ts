@@ -15,7 +15,7 @@ export function sanitizeTaskDescription(input: string): string {
     let sanitized = input.trim().slice(0, MAX_TASK_DESCRIPTION_LENGTH);
 
     // Remove control characters
-    // eslint-disable-next-line no-control-regex
+     
     sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
 
     // Normalize excessive newlines
@@ -330,7 +330,6 @@ export async function buildUserStoryImplementationPrompt(
     const sanitizedStory = sanitizeTaskDescription(userStoryDescription);
     const sanitizedTask = sanitizeTaskDescription(taskDescription);
     const prd = await readPRDAsync() || '';
-    const progress = await readProgressAsync();
     const userStories = await readUserStoriesAsync() || '';
     const root = getWorkspaceRoot();
 
@@ -347,26 +346,8 @@ export async function buildUserStoryImplementationPrompt(
         '───────────────────────────────────────────────────────────────',
         '',
         '===================================================================',
-        '     MANDATORY: UPDATE userstories.md AND progress.txt WHEN DONE',
-        '═══════════════════════════════════════════════════════════════',
-        '',
-        '🚨 THESE STEPS ARE REQUIRED - DO NOT SKIP THEM! 🚨',
-        '',
-        '1. After completing this user story, UPDATE .pilotflow/userstories.md:',
-        '',
-        `   Find this line:    - [ ] ${sanitizedStory}`,
-        `   Change it to:      - [x] ${sanitizedStory}`,
-        '',
-        '2. APPEND to .pilotflow/progress.txt with what you did:',
-        '',
-        '   Add a new line describing what was completed, e.g.:',
-        `   "Completed user story: ${sanitizedStory} - [brief summary]"`,
-        '',
-        'Both updates are required for PilotFlow to continue to the next user story!',
-        '',
-        '═══════════════════════════════════════════════════════════════',
         '                      PROJECT CONTEXT',
-        '═══════════════════════════════════════════════════════════════',
+        '===================================================================',
         '',
         '## Current PRD.md Contents:',
         '',
@@ -382,17 +363,8 @@ export async function buildUserStoryImplementationPrompt(
         ''
     ];
 
-    if (progress && progress.trim()) {
-        parts.push('## Progress Log (.pilotflow/progress.txt):');
-        parts.push('');
-        parts.push('┌─────────────────────────────────────────────────────────────┐');
-        parts.push(progress);
-        parts.push('└─────────────────────────────────────────────────────────────┘');
-        parts.push('');
-    }
-
     parts.push('═══════════════════════════════════════════════════════════════');
-    parts.push('                       WORKFLOW REMINDER');
+    parts.push('                       IMPLEMENTATION INSTRUCTIONS');
     parts.push('═══════════════════════════════════════════════════════════════');
     parts.push('');
     parts.push('⚠️ CRITICAL INSTRUCTIONS:');
@@ -400,12 +372,13 @@ export async function buildUserStoryImplementationPrompt(
     parts.push('❌ DO NOT ASK QUESTIONS - Just implement the story completely');
     parts.push('❌ DO NOT wait for confirmation - Finish all tasks autonomously');
     parts.push('❌ DO NOT leave partial implementations - Complete everything');
+    parts.push('❌ DO NOT update userstories.md or progress.txt - PilotFlow handles this');
     parts.push('✅ MAKE DECISIONS based on best practices when details are unclear');
-    parts.push('✅ IMPLEMENT FULLY and update tracking files when done');
+    parts.push('✅ IMPLEMENT FULLY - Focus only on coding the feature');
     parts.push('');
     parts.push('Steps to complete:');
     parts.push('');
-    parts.push('1. ✅ Implement this user story');
+    parts.push('1. ✅ Implement this user story completely');
 
     let stepNum = 2;
     if (requirements.writeTests) {
@@ -417,14 +390,10 @@ export async function buildUserStoryImplementationPrompt(
         stepNum++;
     }
 
-    parts.push(`${stepNum}. ✅ UPDATE .pilotflow/userstories.md: Mark this user story as complete [x]`);
-    stepNum++;
-    parts.push(`${stepNum}. ✅ APPEND to .pilotflow/progress.txt: Record what you completed`);
-
     parts.push('');
     parts.push(`Workspace: ${root}`);
     parts.push('');
-    parts.push('Begin now. Remember: NO QUESTIONS - implement fully and update tracking files!');
+    parts.push('Begin now. Remember: NO QUESTIONS - implement fully and completely!');
 
     return parts.join('\n');
 }
