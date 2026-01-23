@@ -1,188 +1,286 @@
-# PilotFlow - Autonomous PRD Development
+# PilotFlow
 
-**PilotFlow** runs AI coding agents in a loop. It reads a PRD (Product Requirements Document), picks tasks, implements them one at a time using the GitHub Copilot SDK, and continues until everything is done.
+[![GitHub Copilot](https://img.shields.io/badge/GitHub-Copilot%20SDK-blue?style=flat-square&logo=github)](https://github.com/features/copilot)
+[![VS Code](https://img.shields.io/badge/VS%20Code-1.93%2B-blue?style=flat-square&logo=visualstudiocode)](https://code.visualstudio.com)
+[![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
-> ⚠️ **EXPERIMENTAL** - This extension uses the `@github/copilot-sdk` which is in Technical Preview. The SDK requires the GitHub Copilot CLI to be installed and authenticated.
+Autonomous PRD development in VS Code. PilotFlow reads your Product Requirements Document (PRD), breaks down tasks into manageable user stories, and autonomously implements them using GitHub Copilot.
+
+> [!IMPORTANT]
+> This extension requires the GitHub Copilot CLI to be installed and authenticated. See [Requirements](#requirements) for details.
+
+## Overview
+
+PilotFlow is a VS Code extension that orchestrates the GitHub Copilot SDK to implement your PRD in a structured, autonomous workflow. Instead of manual implementation requests, you describe your project requirements in a PRD, and PilotFlow handles the rest:
+
+1. Reads tasks from your PRD
+2. Generates focused user stories for each task
+3. Implements each user story with Copilot
+4. Tracks progress and automatically continues to the next task
+5. Maintains a progress log of completed work
+
+The extension provides a sidebar control panel with real-time status, file watching for progress tracking, and automatic error recovery with retry logic.
 
 ## Features
 
-- **Sidebar Control Panel** - Full control from the Activity Bar with real-time status
-- **Autonomous Task Execution** - Automatically works through your PRD task list
-- **Copilot SDK Integration** - Uses the official Copilot SDK for programmatic agent control
-- **Progress Tracking** - Visual status bar and sidebar show progress and current task
-- **File Watching** - Automatically detects when Copilot marks tasks complete in PRD.md
-- **Inactivity Detection** - Prompts you if Copilot seems stuck
-- **PRD Generation** - Describe what you want to build and PilotFlow creates the task list
-- **Progress Log** - Maintains a progress.txt file with completed work history
+- **Autonomous Task Loop** - Continuously works through your PRD until complete
+- **User Stories Workflow** - Breaks complex tasks into smaller, implementable pieces
+- **Sidebar Control Panel** - Full control and real-time progress from VS Code Activity Bar
+- **Smart Progress Tracking** - Watches files and automatically detects task completion
+- **Error Recovery** - Built-in retry logic with exponential backoff for failed API calls
+- **PRD Generation** - Create structured task lists from descriptions
+- **Progress Logging** - Maintains a record of all completed work
+- **Inactivity Detection** - Alerts you if Copilot seems stuck
 
 ## How It Works
 
-1. **Read PRD.md** - PilotFlow finds and parses your PRD file
-2. **Find next unchecked task** - Identifies the next `- [ ]` item
-3. **Generate User Stories** - Copilot breaks the task into 3-5 smaller user stories
-4. **Save User Stories** - Stories are saved to `.pilotflow/userstories.md`
-5. **Implement User Stories** - Each user story is sent to Copilot one at a time
-6. **Mark Story Complete** - Copilot marks each story `[x]` when done
-7. **Complete Task** - When all user stories for a task are done, the task is marked complete
-8. **Countdown & continue** - After a brief countdown, PilotFlow starts the next task
-9. **Repeat** - Loop continues until all tasks are done
+```
+┌─────────────────────────────────────────┐
+│  1. Read PRD.md                         │
+│     ↓                                   │
+│  2. Get next unchecked task             │
+│     ↓                                   │
+│  3. Generate user stories               │
+│     ↓                                   │
+│  4. Implement each story with Copilot   │
+│     ↓                                   │
+│  5. Mark story complete [x]             │
+│     ↓                                   │
+│  6. All stories done? Mark task [x]     │
+│     ↓                                   │
+│  7. More tasks? Go to step 2            │
+│     ↓                                   │
+│  8. Done!                               │
+└─────────────────────────────────────────┘
+```
 
-### User Stories Workflow
+### Workflow Details
 
-PilotFlow uses a two-tier approach for more granular implementation:
-
-- **Tasks** (from PRD.md) are high-level work items
-- **User Stories** (in userstories.md) are smaller, actionable pieces of each task
-
-This ensures each Copilot session has a focused, achievable goal while maintaining the big-picture context from the PRD.
+1. **Task Parsing** - PilotFlow scans your `.pilotflow/PRD.md` for unchecked tasks (`- [ ]`)
+2. **Story Generation** - For each task, Copilot generates 3-5 actionable user stories
+3. **Story Implementation** - Each user story is sent to Copilot one at a time for focused implementation
+4. **Automatic Progression** - When a story completes, the checkbox is automatically updated
+5. **Task Completion** - Once all stories for a task are done, the task is marked complete
+6. **Continuous Loop** - The process repeats for the next task until all are done
 
 ## Quick Start
 
-### Generate a PRD from a Description
-1. Run **"PilotFlow: Generate PRD from Description"** from the Command Palette
-2. Describe what you want to build
-3. Copilot creates PRD.md with a structured task list
-4. Run **"PilotFlow: Start Loop"** to begin autonomous development
+### Prerequisites
 
-### Use an Existing PRD
-1. Create a `.pilotflow/PRD.md` file in your workspace:
-   ```markdown
-   # My Project
+Before starting, ensure you have:
 
-   ## Tasks
-   - [ ] Set up project structure with dependencies
-   - [ ] Create core data models and types
-   - [ ] Implement main application logic
-   - [ ] Add user interface and styling
-   - [ ] Write tests and documentation
-   ```
-2. Run **"PilotFlow: Start Loop"** from the Command Palette
+- **VS Code 1.93+**
+- **GitHub Copilot CLI** installed and authenticated
+  ```bash
+  copilot --version  # Verify installation
+  ```
+- **Node.js 18+** (for development)
+- **Active GitHub Copilot subscription**
 
-## Task Format
+> [!TIP]
+> For Copilot CLI setup, see the [GitHub documentation](https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli).
 
-PilotFlow recognizes these checkbox formats:
-- `- [ ]` - Pending task (will be executed)
-- `- [x]` - Completed task (skipped)
-- `- [~]` - In progress task (will be executed)
-- `- [!]` - Blocked task (skipped)
+### 1. Generate a PRD from Description
+
+Fastest way to get started:
+
+1. Open Command Palette (Cmd/Ctrl + Shift + P)
+2. Run **PilotFlow: Generate PRD from Description**
+3. Describe your project (e.g., "A todo app with React and Node.js backend")
+4. Copilot creates `.pilotflow/PRD.md` with structured tasks
+5. Run **PilotFlow: Start Loop** to begin implementation
+
+### 2. Use an Existing PRD
+
+If you have a PRD, create `.pilotflow/PRD.md` with task checkboxes:
+
+```markdown
+# My Project Name
+
+## Tasks
+- [ ] Set up project structure and dependencies
+- [ ] Create core data models and types
+- [ ] Implement main business logic
+- [ ] Add user interface components
+- [ ] Write tests and documentation
+```
+
+Then run **PilotFlow: Start Loop** from the Command Palette.
+
+## Sidebar Control Panel
+
+Click the **🚀** icon in VS Code's Activity Bar to open the PilotFlow sidebar:
+
+- **Progress Stats** - Completed, pending, and current iteration count
+- **Current Task** - Shows both parent task and active user story with elapsed time
+- **Control Buttons** - Start, Stop, Pause, Resume, Single Step
+- **Task List** - View all tasks and their completion status
+- **User Stories** - See user stories for each task with checkmarks
+- **Activity Log** - Real-time log of PilotFlow operations
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `PilotFlow: Open Control Panel` | Show status and quick actions |
-| `PilotFlow: Start Loop` | Start processing tasks from the PRD |
-| `PilotFlow: Stop Loop` | Stop the current execution |
-| `PilotFlow: Pause Loop` | Pause execution (can resume) |
-| `PilotFlow: Resume Loop` | Resume paused execution |
-| `PilotFlow: Run Single Step` | Execute just the next task |
-| `PilotFlow: Generate PRD from Description` | Create PRD.md from a description |
-| `PilotFlow: View Logs` | Open the PilotFlow output channel |
+| Command | Keyboard | Description |
+|---------|----------|-------------|
+| PilotFlow: Start Loop | - | Start autonomous implementation |
+| PilotFlow: Stop Loop | - | Stop the current loop |
+| PilotFlow: Pause Loop | - | Pause execution (can resume) |
+| PilotFlow: Resume Loop | - | Resume from pause |
+| PilotFlow: Run Single Step | - | Execute just the next task |
+| PilotFlow: Generate PRD from Description | - | Create PRD.md from text |
+| PilotFlow: Generate All User Stories | - | Generate stories for all tasks |
+| PilotFlow: View Logs | - | Open the output log |
 
-## Settings
+## File Structure
+
+PilotFlow creates and manages files in the `.pilotflow/` directory:
+
+```
+.pilotflow/
+├── PRD.md              # Product Requirements Document with tasks
+├── userstories.md      # Generated user stories organized by task
+└── progress.txt        # Log of completed work
+```
+
+### PRD.md Format
+
+Tasks use standard markdown checkboxes:
+
+```markdown
+# Project Title
+
+## Tasks
+- [ ] Pending task (will be executed)
+- [x] Completed task (skipped)
+- [~] In progress task (will be executed)
+- [!] Blocked task (skipped)
+```
+
+### User Stories Format
+
+Auto-generated in `userstories.md`, organized by parent task:
+
+```markdown
+## Task: Set up project structure and dependencies
+
+- [x] Initialize npm project and install dependencies
+- [x] Configure TypeScript and build tools
+- [ ] Set up ESLint and code formatting
+- [ ] Create project directory structure
+
+## Task: Create core data models
+
+- [ ] Define TypeScript interfaces for domain models
+- [ ] Create database schemas and migrations
+```
+
+## Configuration
+
+Access settings via VS Code Settings (Cmd/Ctrl + ,) and search for "PilotFlow":
 
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `pilotflow.files.prdPath` | `.pilotflow/PRD.md` | Path to the PRD file |
-| `pilotflow.files.progressPath` | `.pilotflow/progress.txt` | Path to the progress log file |
-| `pilotflow.files.userStoriesPath` | `.pilotflow/userstories.md` | Path to user stories file |
+| `pilotflow.files.progressPath` | `.pilotflow/progress.txt` | Path to the progress log |
+| `pilotflow.userStories.countPerTask` | `3` | Number of user stories per task (1-10) |
 | `pilotflow.prompt.customTemplate` | (empty) | Custom prompt template for tasks |
 | `pilotflow.prompt.customPrdGenerationTemplate` | (empty) | Custom PRD generation template |
 
 ### Custom Prompt Templates
 
-You can customize the prompts sent to Copilot using these placeholders:
-- `{{task}}` - The current task description
+Override default prompts using these placeholders:
+
+- `{{task}}` - Current task description
 - `{{prd}}` - Full PRD.md contents
 - `{{progress}}` - Progress log contents
-- `{{requirements}}` - Requirement steps
-- `{{workspace}}` - Workspace path
-
-## Status Bar
-
-PilotFlow adds a status bar item showing:
-- **$(rocket) PilotFlow** - Idle, click to open control panel
-- **$(sync~spin) PilotFlow: Running #N** - Processing task N
-- **$(watch) PilotFlow: Waiting** - Waiting for Copilot to complete
-- **$(debug-pause) PilotFlow: Paused** - Loop paused
-
-## Sidebar
-
-Click the **🚀 PilotFlow** icon in the Activity Bar to open the sidebar control panel:
-
-- **Progress Stats** - See completed/pending tasks and current iteration
-- **Countdown Timer** - Visual countdown before next task starts
-- **Current Task** - Shows what's being worked on
-- **Control Buttons** - Start, Stop, Pause, Resume, Single Step, Generate PRD
-- **User Stories** - See user stories for each task with completion progress
-- **Task List** - View all tasks with their status (pending/complete/blocked)
-- **Activity Log** - Real-time log of PilotFlow operations
-
-## File Structure
-
-PilotFlow maintains these files in the `.pilotflow/` folder:
-
-```
-.pilotflow/
-├── PRD.md           # Product Requirements Document with tasks
-├── progress.txt     # Log of completed work
-└── userstories.md   # Generated user stories for each task
-```
-
-### User Stories Format
-
-User stories are organized by task in `userstories.md`:
-
-```markdown
-## Task: Set up project structure with dependencies
-
-- [x] Initialize npm project with package.json
-- [x] Add TypeScript configuration
-- [ ] Set up ESLint and Prettier
-- [ ] Configure build scripts
-
-## Task: Create core data models and types
-
-- [ ] Define User interface with required fields
-- [ ] Create validation schemas
-```
-
-## Requirements
-
-- VS Code 1.93 or later
-- GitHub Copilot CLI installed and authenticated
-  - Follow the [installation guide](https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli)
-  - Verify by running `copilot --version` in a terminal
-- Node.js 18.0 or later
-- A valid GitHub Copilot subscription
+- `{{requirements}}` - Implementation requirements
+- `{{workspace}}` - Workspace root path
 
 ## Architecture
 
 ```
 src/
-├── extension.ts        # Main entry point
-├── orchestrator.ts     # Main loop orchestration
-├── taskRunner.ts       # Task execution logic
-├── copilotSdk.ts       # Copilot SDK integration
-├── sidebarProvider.ts  # Sidebar webview provider
-├── fileUtils.ts        # PRD parsing and file operations
-├── fileWatchers.ts     # File change detection
-├── timerManager.ts     # Countdown and inactivity timers
-├── promptBuilder.ts    # Prompt construction
-├── statusBar.ts        # Status bar UI
-├── uiManager.ts        # UI coordination
-├── config.ts           # Configuration handling
-├── logger.ts           # Logging utilities
-└── types.ts            # TypeScript interfaces
+├── extension.ts          # VS Code extension entry point
+├── orchestrator.ts       # Main loop orchestration engine
+├── taskRunner.ts         # Task and user story execution
+├── copilotSdk.ts         # Copilot SDK wrapper with retry logic
+├── sidebarProvider.ts    # Sidebar webview UI
+├── fileUtils.ts          # PRD parsing and file operations
+├── fileWatchers.ts       # File change detection
+├── promptBuilder.ts      # Prompt construction
+├── config.ts             # Configuration handling
+├── types.ts              # TypeScript interfaces
+├── logger.ts             # Logging utilities
+├── statusBar.ts          # Status bar UI
+├── uiManager.ts          # UI coordination
+└── timerManager.ts       # Countdown and inactivity timers
 ```
 
-## Tips
+## Tips for Best Results
 
-- Write clear, actionable task descriptions
-- Keep tasks to 5-6 per PRD (each runs as a separate agent request)
-- Start each task with a verb (Create, Add, Implement, Configure, etc.)
-- The prompt instructs Copilot to update PRD.md when done - this triggers the next task
+- **Write clear task descriptions** - Start each with a verb (Create, Add, Implement, Configure)
+- **Keep PRDs manageable** - 5-6 tasks per PRD works well for focused implementation
+- **Be specific about requirements** - Include technology choices and constraints
+- **Monitor progress** - Check the sidebar and logs for any issues
+- **Customize prompts if needed** - Adjust the custom template for your project style
+
+## Troubleshooting
+
+### Extension won't start
+- Ensure Copilot CLI is installed: `copilot --version`
+- Verify authentication: `copilot auth status`
+- Check VS Code version is 1.93+
+
+### Tasks not progressing
+- Check the Activity Log for errors
+- Verify PRD.md format (tasks must be `- [ ]`)
+- Ensure workspace has write permissions
+
+### API errors (400, 429, 500)
+- The extension includes automatic retry logic with exponential backoff
+- Check VS Code Output panel for details
+- Verify your Copilot subscription is active
+
+### Copilot seems stuck
+- PilotFlow alerts after 60 seconds of inactivity
+- Check the sidebar for current activity
+- Click **Stop** and review the logs
+- Try running a **Single Step** to debug
+
+## Status Bar Indicators
+
+| Status | Icon | Meaning |
+|--------|------|---------|
+| Idle | 🚀 | PilotFlow ready, click to open panel |
+| Running | 🔄 | Processing task #N |
+| Waiting | ⏱️ | Waiting for Copilot to complete |
+| Paused | ⏸️ | Execution paused |
+
+## Requirements
+
+- **VS Code 1.93+** - Modern webview and extension API support
+- **GitHub Copilot CLI** - For Copilot SDK integration
+  - [Installation guide](https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli)
+  - Run `copilot --version` to verify
+- **Node.js 18+** - For runtime (included with VS Code)
+- **Active GitHub Copilot subscription** - Required for API access
+
+## Known Limitations
+
+- Requires Copilot CLI (SDK is in Technical Preview)
+- Works best with clear, well-structured PRDs
+- Large PRDs may take longer to process
+- Progress tracking depends on Copilot updating files correctly
+
+## Contributing
+
+Contributions are welcome! Please feel free to:
+- Report bugs or request features via issues
+- Submit pull requests with improvements
+- Share your workflows and best practices
 
 ## License
 
-MIT
+MIT - See [LICENSE](LICENSE) for details
+
+---

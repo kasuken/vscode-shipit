@@ -213,6 +213,13 @@ export class CopilotSdkService {
         options: CopilotSdkOptions = {}
     ): Promise<{ success: boolean; response?: string; error?: string }> {
         try {
+            // Check prompt size (warn if very large)
+            const MAX_SAFE_PROMPT_SIZE = 100000; // ~100KB characters
+            if (prompt.length > MAX_SAFE_PROMPT_SIZE) {
+                logError(`Warning: Prompt is very large (${prompt.length} chars). This may cause API errors.`, null);
+                vscode.window.showWarningMessage(`PilotFlow: Prompt is ${Math.round(prompt.length / 1000)}KB which may exceed model limits. Consider reducing PRD/user stories size.`);
+            }
+            
             logInfo(`Sending prompt to Copilot (${prompt.length} chars, model: ${options.model || 'default'})`);
             logInfo(`Prompt preview: ${prompt.substring(0, 200)}...`);
             
@@ -299,7 +306,14 @@ export class CopilotSdkService {
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             logError('Error sending prompt to Copilot', error);
-            return { success: false, error: errorMessage };
+            
+            // Provide more context for common errors
+            let detailedError = errorMessage;
+            if (errorMessage.includes('invalid_request_body') || errorMessage.includes('400')) {
+                detailedError = `${errorMessage}. Possible causes: prompt too large (${prompt.length} chars), invalid characters, or malformed request. Try reducing PRD/user stories content.`;
+            }
+            
+            return { success: false, error: detailedError };
         }
     }
 
@@ -418,13 +432,16 @@ export class CopilotSdkService {
         const nonRetryablePatterns = [
             'unauthorized',
             '401',
+            'bad request',
+            '400',
             'forbidden',
             '403',
             'not found',
             '404',
             'invalid',
             'malformed',
-            'authentication'
+            'authentication',
+            'invalid_request_body'
         ];
         
         // Check for non-retryable first

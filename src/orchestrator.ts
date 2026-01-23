@@ -515,71 +515,31 @@ export class LoopOrchestrator {
         const hasStories = await hasUserStoriesForTaskAsync(task.description);
         
         if (!hasStories) {
-            // No user stories - prompt user to generate them first
+            // No user stories - generate them automatically
             this.ui.addLog(`📋 Task ${iteration}: ${task.description}`);
-            this.ui.addLog('⚠️ No user stories found for this task.', true);
+            this.ui.addLog('⚠️ No user stories found for this task. Generating user stories...', true);
             
-            const action = await vscode.window.showWarningMessage(
-                `No user stories found for task: "${task.description}". Generate user stories first or implement directly?`,
-                'Generate Stories',
-                'Implement Directly',
-                'Skip Task',
-                'Stop Loop'
-            );
+            // Generate stories automatically
+            this.isGeneratingUserStories = true;
+            this.isImplementingUserStory = false;
             
-            switch (action) {
-                case 'Generate Stories':
-                    // Generate stories and wait
-                    this.ui.addLog('Generating user stories for this task...');
-                    this.isGeneratingUserStories = true;
-                    this.isImplementingUserStory = false;
-                    
-                    await this.taskRunner.triggerUserStoriesGeneration(task.description, task.id, async () => {
-                        // Called when generation completes
-                        this.ui.addLog('✅ User stories created', true);
-                        this.isGeneratingUserStories = false;
-                        await this.ui.refresh();
-                        
-                        // Continue with implementing the stories
-                        setTimeout(async () => {
-                            if (this.state === LoopExecutionState.RUNNING && !this.isPaused) {
-                                await this.runNextUserStory();
-                            }
-                        }, 1000);
-                    });
-                    
-                    this.inactivityMonitor.setWaiting(true);
-                    this.ui.updateStatus('waiting', iteration, `Generating stories for: ${task.description}`);
-                    this.ui.addLog('Copilot is creating user stories...');
-                    break;
-                    
-                case 'Implement Directly':
-                    // Implement task directly without user stories
-                    this.ui.addLog('Implementing task directly without user stories...');
-                    await this.taskRunner.triggerCopilotAgent(task.description);
-                    
-                    // Watch for PRD changes to detect task completion
-                    const currentPrdContent = await readPRDAsync() || '';
-                    this.fileWatchers.prdWatcher.updateContent(currentPrdContent);
-                    this.fileWatchers.prdWatcher.enable();
-                    
-                    this.inactivityMonitor.setWaiting(true);
-                    this.ui.updateStatus('waiting', iteration, task.description);
-                    this.ui.addLog('Waiting for task to be marked complete in PRD.md...');
-                    this.startPrdCompletionCheck();
-                    break;
-                    
-                case 'Skip Task':
-                    this.ui.addLog('Skipping task...');
-                    this.taskRunner.setCurrentTask('');
-                    await this.startCountdown();
-                    break;
-                    
-                case 'Stop Loop':
-                default:
-                    this.stopLoop();
-                    break;
-            }
+            await this.taskRunner.triggerUserStoriesGeneration(task.description, task.id, async () => {
+                // Called when generation completes
+                this.ui.addLog('✅ User stories created', true);
+                this.isGeneratingUserStories = false;
+                await this.ui.refresh();
+                
+                // Continue with implementing the stories
+                setTimeout(async () => {
+                    if (this.state === LoopExecutionState.RUNNING && !this.isPaused) {
+                        await this.runNextUserStory();
+                    }
+                }, 1000);
+            });
+            
+            this.inactivityMonitor.setWaiting(true);
+            this.ui.updateStatus('waiting', iteration, `Generating stories for: ${task.description}`);
+            this.ui.addLog('Copilot is creating user stories...');
         } else {
             // User stories exist, run the next one
             await this.runNextUserStory();
@@ -648,6 +608,8 @@ export class LoopOrchestrator {
         this.isGeneratingUserStories = false;
         this.currentUserStoryDescription = story.description;
         
+        // Update UI immediately when starting new user story
+        this.ui.updateStatus('running', this.taskRunner.getIterationCount(), story.description);
         this.ui.addLog(`📖 User Story (${storyStats.completed + 1}/${storyStats.total}): ${story.description}`);
         
         await this.taskRunner.triggerUserStoryImplementation(
@@ -671,7 +633,6 @@ export class LoopOrchestrator {
         // Watch for user stories file changes (as backup)
         this.setupUserStoriesWatcher();
         this.inactivityMonitor.setWaiting(true);
-        this.ui.updateStatus('waiting', this.taskRunner.getIterationCount(), story.description);
         this.ui.addLog('Copilot is implementing user story...');
     }
 

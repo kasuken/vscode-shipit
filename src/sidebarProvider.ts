@@ -553,10 +553,41 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
-        .current-task-text {
+        .working-elapsed {
+            margin-left: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 10px;
+            font-weight: 500;
+            color: var(--vscode-descriptionForeground);
+        }
+        .active-task-text {
+            font-size: 11px;
+            word-break: break-word;
+            line-height: 1.4;
+            color: var(--vscode-descriptionForeground);
+            margin-bottom: 6px;
+            padding-left: 16px;
+            position: relative;
+        }
+        .active-task-text::before {
+            content: '📋';
+            position: absolute;
+            left: 0;
+        }
+        .current-user-story-text {
             font-size: 12px;
             word-break: break-word;
             line-height: 1.5;
+            padding-left: 16px;
+            position: relative;
+        }
+        .current-user-story-text::before {
+            content: '📖';
+            position: absolute;
+            left: 0;
+        }
+        .current-user-story-text:empty {
+            display: none;
         }
 
         /* ===== BUTTONS ===== */
@@ -848,13 +879,6 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
         </div>
     </div>
 
-    <div id="elapsedSection" class="section hidden">
-        <div class="elapsed-container">
-            <div class="elapsed-label">⏱️ Elapsed Time</div>
-            <div id="elapsedTime" class="elapsed-time">00:00:00</div>
-        </div>
-    </div>
-
     <div id="countdownSection" class="section countdown">
         <div class="countdown-ring"></div>
         <div class="countdown-value" id="countdownValue">0</div>
@@ -865,9 +889,11 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
         <div id="currentTaskBox" class="current-task">
             <div class="current-task-label">
                 <span class="spinner"></span>
-                Working On
+                <span>Working On</span>
+                <span id="workingElapsedTime" class="working-elapsed">⏱️ 00:00</span>
             </div>
-            <div class="current-task-text" id="currentTaskText"></div>
+            <div id="activeTaskText" class="active-task-text"></div>
+            <div id="currentUserStoryText" class="current-user-story-text"></div>
         </div>
     </div>
 
@@ -970,7 +996,16 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
         function updateElapsedTime() {
             if (state.sessionStartTime > 0) {
                 const elapsed = Date.now() - state.sessionStartTime;
-                document.getElementById('elapsedTime').textContent = formatElapsedTime(elapsed);
+                const seconds = Math.floor(elapsed / 1000);
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                const timeStr = mins.toString().padStart(2, '0') + ':' + secs.toString().padStart(2, '0');
+                
+                // Update working elapsed time
+                const workingElapsed = document.getElementById('workingElapsedTime');
+                if (workingElapsed) {
+                    workingElapsed.textContent = '⏱️ ' + timeStr;
+                }
             }
         }
 
@@ -1037,17 +1072,6 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
                 progressContainer.classList.add('hidden');
             }
 
-            // Elapsed time
-            const elapsedSection = document.getElementById('elapsedSection');
-            const isActive = state.status === 'running' || state.status === 'waiting' || state.status === 'paused';
-            if (isActive && state.sessionStartTime > 0) {
-                elapsedSection.classList.remove('hidden');
-                startElapsedTimer();
-            } else {
-                elapsedSection.classList.add('hidden');
-                stopElapsedTimer();
-            }
-
             // Countdown
             const countdownSection = document.getElementById('countdownSection');
             if (state.countdown > 0) {
@@ -1057,16 +1081,24 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
                 countdownSection.classList.remove('visible');
             }
 
-            // Current task
+            // Current task and user story
             const currentTaskSection = document.getElementById('currentTaskSection');
             const currentTaskBox = document.getElementById('currentTaskBox');
-            if (state.currentTask && (state.status === 'running' || state.status === 'waiting')) {
+            const isActive = state.status === 'running' || state.status === 'waiting' || state.status === 'paused';
+            if ((state.currentTask || state.activeTaskDescription) && (state.status === 'running' || state.status === 'waiting')) {
                 currentTaskSection.classList.remove('hidden');
                 currentTaskBox.classList.add('active');
-                document.getElementById('currentTaskText').textContent = state.currentTask;
+                document.getElementById('activeTaskText').textContent = state.activeTaskDescription || '';
+                document.getElementById('currentUserStoryText').textContent = state.currentTask || '';
+                
+                // Start elapsed timer
+                if (isActive && state.sessionStartTime > 0) {
+                    startElapsedTimer();
+                }
             } else {
                 currentTaskSection.classList.add('hidden');
                 currentTaskBox.classList.remove('active');
+                stopElapsedTimer();
             }
 
             // Buttons
