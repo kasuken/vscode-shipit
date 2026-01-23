@@ -559,6 +559,11 @@ export class LoopOrchestrator {
         this.isGeneratingUserStories = false;
         this.currentUserStoryDescription = story.description;
         
+        // Update UI with current user story
+        if (this.ui.setActiveUserStory) {
+            this.ui.setActiveUserStory(story.description);
+        }
+        
         this.ui.addLog(`📖 User Story (${storyStats.completed + 1}/${storyStats.total}): ${story.description}`);
         
         await this.taskRunner.triggerUserStoryImplementation(story.description, this.currentTaskDescription);
@@ -646,6 +651,12 @@ export class LoopOrchestrator {
                 this.ui.addLog('✅ User story completed!', true);
                 this.isImplementingUserStory = false;
                 this.currentUserStoryDescription = '';
+                
+                // Clear user story from UI
+                if (this.ui.setActiveUserStory) {
+                    this.ui.setActiveUserStory('');
+                }
+                
                 this.inactivityMonitor.stop();
                 
                 // Log progress

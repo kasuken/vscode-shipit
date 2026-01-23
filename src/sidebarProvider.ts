@@ -14,6 +14,7 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
     private _iteration: number = 0;
     private _currentTask: string = '';
     private _activeTaskDescription: string = '';
+    private _activeUserStory: string = '';
     private _countdown: number = 0;
     private _history: TaskCompletion[] = [];
     private _logs: string[] = [];
@@ -169,6 +170,11 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
         this._sendUpdate();
     }
 
+    setActiveUserStory(userStoryDescription: string): void {
+        this._activeUserStory = userStoryDescription;
+        this._sendUpdate();
+    }
+
     /**
      * Send full state to webview
      */
@@ -181,6 +187,7 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
             iteration: this._iteration,
             currentTask: this._currentTask,
             activeTaskDescription: this._activeTaskDescription,
+            activeUserStory: this._activeUserStory,
             countdown: this._countdown,
             history: this._history,
             logs: this._logs,
@@ -206,6 +213,7 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
             iteration: this._iteration,
             currentTask: this._currentTask,
             activeTaskDescription: this._activeTaskDescription,
+            activeUserStory: this._activeUserStory,
             countdown: this._countdown,
             history: this._history,
             logs: this._logs,
@@ -493,11 +501,24 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
         .hidden {
             display: none !important;
         }
+        .header-elapsed-inline {
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+            margin-right: auto;
+            padding-left: 8px;
+        }
+        .header-elapsed-time {
+            font-weight: 600;
+            color: var(--vscode-foreground);
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <h2>📦 ShipIt</h2>
+        <span id="elapsedSection" class="header-elapsed-inline hidden">
+            ⏱️ <span id="elapsedTime" class="header-elapsed-time">00:00:00</span>
+        </span>
         <span id="statusBadge" class="status-badge status-idle">Idle</span>
     </div>
 
@@ -519,13 +540,6 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
         </div>
     </div>
 
-    <div id="elapsedSection" class="section hidden">
-        <div class="current-task" style="text-align: center; padding: 8px;">
-            <div class="current-task-label">Elapsed Time</div>
-            <div id="elapsedTime" style="font-size: 18px; font-weight: 600;">00:00:00</div>
-        </div>
-    </div>
-
     <div id="countdownSection" class="section countdown">
         <div class="countdown-value" id="countdownValue">0</div>
         <div class="countdown-label">Next task in seconds</div>
@@ -533,8 +547,15 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
 
     <div id="currentTaskSection" class="section hidden">
         <div class="current-task">
-            <div class="current-task-label">Current Task</div>
-            <div class="current-task-text" id="currentTaskText"></div>
+            <div class="current-task-label">Current Work</div>
+            <div class="current-task-text" style="display: flex; align-items: flex-start; gap: 6px;">
+                <span style="flex-shrink: 0;">📋</span>
+                <span id="currentTaskText"></span>
+            </div>
+            <div id="currentUserStoryContainer" class="hidden" style="margin-top: 12px; display: flex; align-items: flex-start; gap: 6px;">
+                <span style="flex-shrink: 0;">📖</span>
+                <span id="currentUserStoryText"></span>
+            </div>
         </div>
     </div>
 
@@ -612,6 +633,7 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
             iteration: 0,
             currentTask: '',
             activeTaskDescription: '',
+            activeUserStory: '',
             countdown: 0,
             sessionStartTime: 0,
             stats: { total: 0, completed: 0, pending: 0 },
@@ -691,9 +713,18 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
 
             // Current task
             const currentTaskSection = document.getElementById('currentTaskSection');
+            const userStoryContainer = document.getElementById('currentUserStoryContainer');
             if (state.currentTask && (state.status === 'running' || state.status === 'waiting')) {
                 currentTaskSection.classList.remove('hidden');
                 document.getElementById('currentTaskText').textContent = state.currentTask;
+                
+                // Current user story
+                if (state.activeUserStory) {
+                    userStoryContainer.classList.remove('hidden');
+                    document.getElementById('currentUserStoryText').textContent = state.activeUserStory;
+                } else {
+                    userStoryContainer.classList.add('hidden');
+                }
             } else {
                 currentTaskSection.classList.add('hidden');
             }
@@ -889,6 +920,7 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
                 state.iteration = message.iteration || 0;
                 state.currentTask = message.currentTask || '';
                 state.activeTaskDescription = message.activeTaskDescription || state.activeTaskDescription;
+                state.activeUserStory = message.activeUserStory || '';
                 state.countdown = message.countdown || 0;
                 state.logs = message.logs || state.logs;
                 

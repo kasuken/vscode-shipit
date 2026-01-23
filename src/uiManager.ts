@@ -108,6 +108,13 @@ export class UIManager {
     }
 
     /**
+     * Set the active user story description
+     */
+    setActiveUserStory(userStoryDescription: string): void {
+        this.sidebarView?.setActiveUserStory?.(userStoryDescription);
+    }
+
+    /**
      * Add a log message
      */
     addLog(message: string, highlight: boolean = false): void {
