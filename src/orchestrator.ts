@@ -2,9 +2,9 @@ import * as vscode from 'vscode';
 import {
     LoopExecutionState,
     TaskRequirements,
-    PilotFlowSettings,
+    ShipItSettings,
     REVIEW_COUNTDOWN_SECONDS,
-    IPilotFlowUI
+    IShipItUI
 } from './types';
 import { logError } from './logger';
 import { 
@@ -21,14 +21,14 @@ import {
     readUserStoriesAsync,
     getAllTasksAsync
 } from './fileUtils';
-import { PilotFlowStatusBar } from './statusBar';
+import { ShipItStatusBar } from './statusBar';
 import { CountdownTimer, InactivityMonitor } from './timerManager';
 import { FileWatcherManager } from './fileWatchers';
 import { UIManager } from './uiManager';
 import { TaskRunner } from './taskRunner';
 
 /**
- * Main orchestrator for the PilotFlow loop
+ * Main orchestrator for the ShipIt loop
  */
 export class LoopOrchestrator {
     private state: LoopExecutionState = LoopExecutionState.IDLE;
@@ -48,7 +48,7 @@ export class LoopOrchestrator {
     private readonly countdownTimer = new CountdownTimer();
     private readonly inactivityMonitor = new InactivityMonitor();
 
-    constructor(statusBar: PilotFlowStatusBar) {
+    constructor(statusBar: ShipItStatusBar) {
         this.ui = new UIManager(statusBar);
         this.taskRunner = new TaskRunner();
 
@@ -60,14 +60,14 @@ export class LoopOrchestrator {
     /**
      * Set the main panel for UI updates
      */
-    setPanel(panel: IPilotFlowUI | null): void {
+    setPanel(panel: IShipItUI | null): void {
         this.ui.setPanel(panel);
     }
 
     /**
      * Set the sidebar view for UI updates
      */
-    setSidebarView(view: IPilotFlowUI): void {
+    setSidebarView(view: IShipItUI): void {
         this.ui.setSidebarView(view);
     }
 
@@ -88,14 +88,14 @@ export class LoopOrchestrator {
     /**
      * Set settings
      */
-    setSettings(settings: PilotFlowSettings): void {
+    setSettings(settings: ShipItSettings): void {
         this.taskRunner.setSettings(settings);
     }
 
     /**
      * Get current settings
      */
-    getSettings(): PilotFlowSettings {
+    getSettings(): ShipItSettings {
         return this.taskRunner.getSettings();
     }
 
@@ -108,17 +108,10 @@ export class LoopOrchestrator {
             return;
         }
 
-        // Start the Copilot SDK service
-        const copilotStarted = await this.taskRunner.startCopilotService();
-        if (!copilotStarted) {
-            this.ui.addLog('Failed to start Copilot SDK service. Please ensure Copilot CLI is installed.');
-            return;
-        }
-
         const stats = await getTaskStatsAsync();
         if (stats.pending === 0) {
             this.ui.addLog('No pending tasks found. Add tasks to PRD.md first.');
-            vscode.window.showInformationMessage('PilotFlow: No pending tasks found in PRD.md');
+            vscode.window.showInformationMessage('ShipIt: No pending tasks found in PRD.md');
             return;
         }
 
@@ -136,7 +129,7 @@ export class LoopOrchestrator {
 
         await this.ui.updateStats();
 
-        this.ui.addLog('🚀 Starting PilotFlow loop...');
+        this.ui.addLog('📦 Starting ShipIt loop...');
         await this.updatePanelTiming();
         this.ui.updateStatus('running', this.taskRunner.getIterationCount(), this.taskRunner.getCurrentTask());
 
@@ -182,9 +175,6 @@ export class LoopOrchestrator {
         this.inactivityMonitor.stop();
         this.stopPrdCompletionCheck();
 
-        // Abort any current Copilot operation
-        await this.taskRunner.abortCopilot();
-
         this.state = LoopExecutionState.IDLE;
         this.isPaused = false;
         this.currentTaskDescription = '';
@@ -209,7 +199,7 @@ export class LoopOrchestrator {
         const task = await getNextTaskAsync();
         if (!task) {
             this.ui.addLog('No pending tasks');
-            vscode.window.showInformationMessage('PilotFlow: No pending tasks in PRD.md');
+            vscode.window.showInformationMessage('ShipIt: No pending tasks in PRD.md');
             return;
         }
 
@@ -227,7 +217,7 @@ export class LoopOrchestrator {
     async generatePrdFromDescription(taskDescription: string): Promise<void> {
         const root = getWorkspaceRoot();
         if (!root) {
-            vscode.window.showErrorMessage('PilotFlow: No workspace folder open');
+            vscode.window.showErrorMessage('ShipIt: No workspace folder open');
             return;
         }
 
@@ -242,7 +232,7 @@ export class LoopOrchestrator {
     async generateUserStoriesForTask(taskDescription: string): Promise<void> {
         const root = getWorkspaceRoot();
         if (!root) {
-            vscode.window.showErrorMessage('PilotFlow: No workspace folder open');
+            vscode.window.showErrorMessage('ShipIt: No workspace folder open');
             return;
         }
 
@@ -259,38 +249,11 @@ export class LoopOrchestrator {
         const taskId = task?.id || `task-${Date.now()}`;
 
         this.ui.addLog(`📋 Generating user stories for: ${taskDescription}`);
-        await this.taskRunner.triggerUserStoriesGeneration(taskDescription, taskId, async () => {
-            // Called when generation completes
-            this.ui.addLog(`✅ User stories created for: ${taskDescription}`, true);
-            await this.ui.refresh();
-            vscode.window.showInformationMessage(`User stories created for task: ${taskDescription}`);
-        });
+        await this.taskRunner.triggerUserStoriesGeneration(taskDescription, taskId);
         
-        this.ui.addLog('⏳ Copilot is generating user stories...');
+        // Set up watcher and refresh UI when done
+        this.setupUserStoriesCreationWatcher(taskDescription);
     }
-
-    /**
-     * Set up watcher for single task user stories creation (on-demand)
-     */
-    private setupSingleUserStoriesWatcher(taskDescription: string): void {
-        const root = getWorkspaceRoot();
-        if (!root) { return; }
-
-        this.fileWatchers.activityWatcher.start(async () => {
-            const hasStories = await hasUserStoriesForTaskAsync(taskDescription);
-            if (hasStories) {
-                this.ui.addLog(`✅ User stories created for: ${taskDescription}`, true);
-                this.fileWatchers.activityWatcher.dispose();
-                await this.ui.refresh();
-                vscode.window.showInformationMessage(`User stories created for task: ${taskDescription}`);
-            }
-        });
-        this.ui.addLog('👁️ Watching for user stories creation...');
-    }
-
-    // Track tasks needing stories for batch generation
-    private tasksNeedingStories: { id: string; description: string }[] = [];
-    private isGeneratingAllStories = false;
 
     /**
      * Generate user stories for all pending tasks without stories
@@ -298,12 +261,7 @@ export class LoopOrchestrator {
     async generateAllUserStories(): Promise<void> {
         const root = getWorkspaceRoot();
         if (!root) {
-            vscode.window.showErrorMessage('PilotFlow: No workspace folder open');
-            return;
-        }
-
-        if (this.isGeneratingAllStories) {
-            vscode.window.showInformationMessage('Already generating user stories. Please wait...');
+            vscode.window.showErrorMessage('ShipIt: No workspace folder open');
             return;
         }
 
@@ -316,79 +274,44 @@ export class LoopOrchestrator {
         }
 
         // Find tasks without user stories
-        this.tasksNeedingStories = [];
+        const tasksNeedingStories: typeof tasks = [];
         for (const task of pendingTasks) {
             const hasStories = await hasUserStoriesForTaskAsync(task.description);
             if (!hasStories) {
-                this.tasksNeedingStories.push({ id: task.id, description: task.description });
+                tasksNeedingStories.push(task);
             }
         }
 
-        if (this.tasksNeedingStories.length === 0) {
+        if (tasksNeedingStories.length === 0) {
             vscode.window.showInformationMessage('All tasks already have user stories');
             return;
         }
 
-        this.isGeneratingAllStories = true;
-        this.ui.addLog(`📋 Generating user stories for ${this.tasksNeedingStories.length} task(s)...`);
+        // Generate stories for the first task that needs them
+        // User can click again to generate for the next task
+        const firstTask = tasksNeedingStories[0];
+        this.ui.addLog(`📋 Generating user stories for ${tasksNeedingStories.length} task(s)...`);
+        this.ui.addLog(`Starting with: ${firstTask.description}`);
         
-        // Start with the first task
-        await this.generateNextBatchStory();
+        await this.taskRunner.triggerUserStoriesGeneration(firstTask.description, firstTask.id);
+        this.setupUserStoriesCreationWatcher(firstTask.description);
     }
 
     /**
-     * Generate stories for the next task in the batch
+     * Set up watcher for user stories creation (on-demand)
      */
-    private async generateNextBatchStory(): Promise<void> {
-        if (this.tasksNeedingStories.length === 0) {
-            this.isGeneratingAllStories = false;
-            this.ui.addLog('✅ All user stories generated!', true);
-            await this.ui.refresh();
-            vscode.window.showInformationMessage('PilotFlow: All user stories generated!');
-            return;
-        }
-
-        const nextTask = this.tasksNeedingStories[0];
-        this.ui.addLog(`📝 Generating stories for: ${nextTask.description} (${this.tasksNeedingStories.length} remaining)`);
-        
-        await this.taskRunner.triggerUserStoriesGeneration(nextTask.description, nextTask.id, async () => {
-            // Called when generation completes
-            this.ui.addLog(`✅ User stories created for: ${nextTask.description}`, true);
-            await this.ui.refresh();
-            
-            // Remove from queue and continue with next
-            this.tasksNeedingStories = this.tasksNeedingStories.filter(t => t.description !== nextTask.description);
-            
-            // Wait a moment before starting the next one
-            setTimeout(async () => {
-                if (this.isGeneratingAllStories) {
-                    await this.generateNextBatchStory();
-                }
-            }, 1000);
-        });
-        
-        this.ui.addLog('⏳ Copilot is generating user stories...');
-    }
-
-    /**
-     * Set up watcher for batch user stories creation
-     */
-    private setupBatchUserStoriesWatcher(taskDescription: string): void {
+    private setupUserStoriesCreationWatcher(taskDescription: string): void {
         const root = getWorkspaceRoot();
         if (!root) { return; }
 
+        // Use activity watcher to detect when stories are created
         this.fileWatchers.activityWatcher.start(async () => {
             const hasStories = await hasUserStoriesForTaskAsync(taskDescription);
             if (hasStories) {
                 this.ui.addLog(`✅ User stories created for: ${taskDescription}`, true);
                 this.fileWatchers.activityWatcher.dispose();
                 await this.ui.refresh();
-                
-                // Remove from queue and continue with next
-                this.tasksNeedingStories = this.tasksNeedingStories.filter(t => t.description !== taskDescription);
-                
-                // Wait a moment before starting the next one
-                setTimeout(() => this.generateNextBatchStory(), 2000);
+                vscode.window.showInformationMessage(`User stories created for task: ${taskDescription}`);
             }
         });
         this.ui.addLog('👁️ Watching for user stories creation...');
@@ -403,10 +326,10 @@ export class LoopOrchestrator {
         const prd = await readPRDAsync();
         const settings = this.taskRunner.getSettings();
 
-        stream.markdown('## PilotFlow Status\n\n');
+        stream.markdown('## ShipIt Status\n\n');
 
         if (!prd) {
-            stream.markdown('**No PRD found.** Run `@pilotflow /init` to create template files.\n');
+            stream.markdown('**No PRD found.** Run `@shipit /init` to create template files.\n');
             return;
         }
 
@@ -424,9 +347,8 @@ export class LoopOrchestrator {
     /**
      * Dispose resources
      */
-    async dispose(): Promise<void> {
-        await this.stopLoop();
-        await this.taskRunner.stopCopilotService();
+    dispose(): void {
+        this.stopLoop();
     }
 
     /**
@@ -455,7 +377,7 @@ export class LoopOrchestrator {
             this.ui.addLog('PRD.md created successfully!', true);
             await this.ui.refresh();
             this.fileWatchers.prdCreationWatcher.dispose();
-            vscode.window.showInformationMessage('PilotFlow: PRD.md created! Click Start to begin.');
+            vscode.window.showInformationMessage('ShipIt: PRD.md created! Click Start to begin.');
         });
         this.ui.addLog('👁️ Watching for PRD.md creation...');
     }
@@ -486,7 +408,7 @@ export class LoopOrchestrator {
             await appendProgressAsync(`🎉 All tasks completed! Total time: ${formattedTime}`);
             
             this.stopLoop();
-            vscode.window.showInformationMessage(`PilotFlow: All PRD tasks completed! 🎉 Total time: ${formattedTime}`);
+            vscode.window.showInformationMessage(`ShipIt: All PRD tasks completed! 🎉 Total time: ${formattedTime}`);
             return;
         }
 
@@ -515,31 +437,60 @@ export class LoopOrchestrator {
         const hasStories = await hasUserStoriesForTaskAsync(task.description);
         
         if (!hasStories) {
-            // No user stories - generate them automatically
+            // No user stories - prompt user to generate them first
             this.ui.addLog(`📋 Task ${iteration}: ${task.description}`);
-            this.ui.addLog('⚠️ No user stories found for this task. Generating user stories...', true);
+            this.ui.addLog('⚠️ No user stories found for this task.', true);
             
-            // Generate stories automatically
-            this.isGeneratingUserStories = true;
-            this.isImplementingUserStory = false;
+            const action = await vscode.window.showWarningMessage(
+                `No user stories found for task: "${task.description}". Generate user stories first or implement directly?`,
+                'Generate Stories',
+                'Implement Directly',
+                'Skip Task',
+                'Stop Loop'
+            );
             
-            await this.taskRunner.triggerUserStoriesGeneration(task.description, task.id, async () => {
-                // Called when generation completes
-                this.ui.addLog('✅ User stories created', true);
-                this.isGeneratingUserStories = false;
-                await this.ui.refresh();
-                
-                // Continue with implementing the stories
-                setTimeout(async () => {
-                    if (this.state === LoopExecutionState.RUNNING && !this.isPaused) {
-                        await this.runNextUserStory();
-                    }
-                }, 1000);
-            });
-            
-            this.inactivityMonitor.setWaiting(true);
-            this.ui.updateStatus('waiting', iteration, `Generating stories for: ${task.description}`);
-            this.ui.addLog('Copilot is creating user stories...');
+            switch (action) {
+                case 'Generate Stories':
+                    // Generate stories and wait
+                    this.ui.addLog('Generating user stories for this task...');
+                    this.isGeneratingUserStories = true;
+                    this.isImplementingUserStory = false;
+                    
+                    await this.taskRunner.triggerUserStoriesGeneration(task.description, task.id);
+                    
+                    this.setupUserStoriesWatcher();
+                    this.inactivityMonitor.setWaiting(true);
+                    this.ui.updateStatus('waiting', iteration, `Generating stories for: ${task.description}`);
+                    this.ui.addLog('Waiting for Copilot to create user stories...');
+                    break;
+                    
+                case 'Implement Directly':
+                    // Implement task directly without user stories
+                    this.ui.addLog('Implementing task directly without user stories...');
+                    await this.taskRunner.triggerCopilotAgent(task.description);
+                    
+                    // Watch for PRD changes to detect task completion
+                    const currentPrdContent = await readPRDAsync() || '';
+                    this.fileWatchers.prdWatcher.updateContent(currentPrdContent);
+                    this.fileWatchers.prdWatcher.enable();
+                    
+                    this.inactivityMonitor.setWaiting(true);
+                    this.ui.updateStatus('waiting', iteration, task.description);
+                    this.ui.addLog('Waiting for task to be marked complete in PRD.md...');
+                    this.startPrdCompletionCheck();
+                    break;
+                    
+                case 'Skip Task':
+                    this.ui.addLog('Skipping task...');
+                    this.taskRunner.setCurrentTask('');
+                    await this.startCountdown();
+                    break;
+                    
+                case 'Stop Loop':
+                default:
+                    this.stopLoop();
+                    break;
+            }
         } else {
             // User stories exist, run the next one
             await this.runNextUserStory();
@@ -608,32 +559,15 @@ export class LoopOrchestrator {
         this.isGeneratingUserStories = false;
         this.currentUserStoryDescription = story.description;
         
-        // Update UI immediately when starting new user story
-        this.ui.updateStatus('running', this.taskRunner.getIterationCount(), story.description);
         this.ui.addLog(`📖 User Story (${storyStats.completed + 1}/${storyStats.total}): ${story.description}`);
         
-        await this.taskRunner.triggerUserStoryImplementation(
-            story.description, 
-            this.currentTaskDescription,
-            async () => {
-                // This callback is called when the user story implementation is complete
-                this.ui.addLog('✅ User story implementation completed');
-                this.isImplementingUserStory = false;
-                this.currentUserStoryDescription = '';
-                
-                // Schedule next user story (use setTimeout to avoid blocking)
-                setTimeout(async () => {
-                    if (this.state === LoopExecutionState.RUNNING && !this.isPaused) {
-                        await this.runNextUserStory();
-                    }
-                }, 1000);
-            }
-        );
+        await this.taskRunner.triggerUserStoryImplementation(story.description, this.currentTaskDescription);
         
-        // Watch for user stories file changes (as backup)
+        // Watch for user stories file changes
         this.setupUserStoriesWatcher();
         this.inactivityMonitor.setWaiting(true);
-        this.ui.addLog('Copilot is implementing user story...');
+        this.ui.updateStatus('waiting', this.taskRunner.getIterationCount(), story.description);
+        this.ui.addLog('Waiting for Copilot to complete user story and update userstories.md...');
     }
 
     /**
@@ -762,7 +696,7 @@ export class LoopOrchestrator {
         this.ui.addLog('⚠️ No file activity detected for 60 seconds...');
 
         const action = await vscode.window.showWarningMessage(
-            `PilotFlow: No file changes detected for 60 seconds. Is Copilot still working on the task?`,
+            `ShipIt: No file changes detected for 60 seconds. Is Copilot still working on the task?`,
             'Continue Waiting',
             'Retry Task',
             'Skip Task',

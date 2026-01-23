@@ -117,7 +117,7 @@ export class CopilotSdkService {
             
             // Show helpful error message
             const action = await vscode.window.showErrorMessage(
-                `PilotFlow: Failed to start Copilot SDK. Make sure GitHub Copilot CLI is installed and you're authenticated. Error: ${errorMessage}`,
+                `ShipIt: Failed to start Copilot SDK. Make sure GitHub Copilot CLI is installed and you're authenticated. Error: ${errorMessage}`,
                 'Install Copilot CLI',
                 'Dismiss'
             );
@@ -217,7 +217,7 @@ export class CopilotSdkService {
             const MAX_SAFE_PROMPT_SIZE = 100000; // ~100KB characters
             if (prompt.length > MAX_SAFE_PROMPT_SIZE) {
                 logError(`Warning: Prompt is very large (${prompt.length} chars). This may cause API errors.`, null);
-                vscode.window.showWarningMessage(`PilotFlow: Prompt is ${Math.round(prompt.length / 1000)}KB which may exceed model limits. Consider reducing PRD/user stories size.`);
+                vscode.window.showWarningMessage(`ShipIt: Prompt is ${Math.round(prompt.length / 1000)}KB which may exceed model limits. Consider reducing PRD/user stories size.`);
             }
             
             logInfo(`Sending prompt to Copilot (${prompt.length} chars, model: ${options.model || 'default'})`);
@@ -370,7 +370,7 @@ export class CopilotSdkService {
         if (!success) {
             const errorMsg = `Copilot task failed after ${maxRetries + 1} attempts: ${lastError}`;
             logError(errorMsg, null);
-            vscode.window.showWarningMessage(`PilotFlow: ${errorMsg}. Continuing to next task...`);
+            vscode.window.showWarningMessage(`ShipIt: ${errorMsg}. Continuing to next task...`);
             
             // If continueOnError is true, still call onComplete to continue the workflow
             if (continueOnError && options.onComplete) {

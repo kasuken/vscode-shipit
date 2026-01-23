@@ -1,31 +1,31 @@
-import { PilotFlowStatusBar, LoopStatus } from './statusBar';
-import { TaskCompletion, IPilotFlowUI } from './types';
+import { ShipItStatusBar, LoopStatus } from './statusBar';
+import { TaskCompletion, IShipItUI } from './types';
 import { log } from './logger';
 
 /**
- * Manages all UI updates for PilotFlow
+ * Manages all UI updates for ShipIt
  */
 export class UIManager {
-    private panel: IPilotFlowUI | null = null;
-    private sidebarView: IPilotFlowUI | null = null;
-    private readonly statusBar: PilotFlowStatusBar;
+    private panel: IShipItUI | null = null;
+    private sidebarView: IShipItUI | null = null;
+    private readonly statusBar: ShipItStatusBar;
     private logs: string[] = [];
 
-    constructor(statusBar: PilotFlowStatusBar) {
+    constructor(statusBar: ShipItStatusBar) {
         this.statusBar = statusBar;
     }
 
     /**
      * Set the main panel
      */
-    setPanel(panel: IPilotFlowUI | null): void {
+    setPanel(panel: IShipItUI | null): void {
         this.panel = panel;
     }
 
     /**
      * Set the sidebar view
      */
-    setSidebarView(view: IPilotFlowUI): void {
+    setSidebarView(view: IShipItUI): void {
         this.sidebarView = view;
     }
 

@@ -3,9 +3,9 @@ import * as vscode from 'vscode';
 export type LoopStatus = 'idle' | 'running' | 'paused' | 'waiting';
 
 /**
- * PilotFlow status bar item
+ * ShipIt status bar item
  */
-export class PilotFlowStatusBar implements vscode.Disposable {
+export class ShipItStatusBar implements vscode.Disposable {
     private statusItem: vscode.StatusBarItem;
     private status: LoopStatus = 'idle';
     private taskInfo: string = '';
@@ -16,7 +16,7 @@ export class PilotFlowStatusBar implements vscode.Disposable {
             vscode.StatusBarAlignment.Left,
             100
         );
-        this.statusItem.command = 'pilotflow.showPanel';
+        this.statusItem.command = 'shipit.showPanel';
         this.update();
         this.statusItem.show();
     }
@@ -56,23 +56,23 @@ export class PilotFlowStatusBar implements vscode.Disposable {
         switch (this.status) {
             case 'running':
                 icon = '$(sync~spin)';
-                text = `PilotFlow: Running #${this.iteration}`;
+                text = `ShipIt: Running #${this.iteration}`;
                 tooltip = `Working on: ${this.taskInfo || 'Starting...'}\nClick to open control panel`;
                 break;
             case 'paused':
                 icon = '$(debug-pause)';
-                text = 'PilotFlow: Paused';
+                text = 'ShipIt: Paused';
                 tooltip = 'Loop paused. Click to open control panel';
                 break;
             case 'waiting':
                 icon = '$(watch)';
-                text = 'PilotFlow: Waiting';
+                text = 'ShipIt: Waiting';
                 tooltip = `Waiting for Copilot to complete task\nTask: ${this.taskInfo}\nClick to open control panel`;
                 break;
             default:
-                icon = '$(rocket)';
-                text = 'PilotFlow';
-                tooltip = 'Click to open PilotFlow control panel';
+                icon = '$(package)';
+                text = 'ShipIt';
+                tooltip = 'Click to open ShipIt control panel';
         }
 
         this.statusItem.text = `${icon} ${text}`;

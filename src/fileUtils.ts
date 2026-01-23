@@ -37,31 +37,31 @@ export async function readPRDAsync(): Promise<string | null> {
     const config = getConfig();
     const root = getWorkspaceRoot();
     if (!root) { 
-        console.log('[PilotFlow] No workspace root found');
+        console.log('[ShipIt] No workspace root found');
         return null; 
     }
 
     const prdPath = path.join(root, config.files.prdPath);
-    console.log('[PilotFlow] Looking for PRD at:', prdPath);
+    console.log('[ShipIt] Looking for PRD at:', prdPath);
     
     // Try configured path first
     try {
         await fsPromises.access(prdPath);
-        console.log('[PilotFlow] Found PRD at configured path');
+        console.log('[ShipIt] Found PRD at configured path');
         return await fsPromises.readFile(prdPath, 'utf-8');
     } catch {
-        console.log('[PilotFlow] PRD not found at configured path, trying fallback');
+        console.log('[ShipIt] PRD not found at configured path, trying fallback');
     }
 
     // Fallback: check for PRD.md at root
     const fallbackPath = path.join(root, 'PRD.md');
-    console.log('[PilotFlow] Looking for PRD at fallback:', fallbackPath);
+    console.log('[ShipIt] Looking for PRD at fallback:', fallbackPath);
     try {
         await fsPromises.access(fallbackPath);
-        console.log('[PilotFlow] Found PRD at fallback path');
+        console.log('[ShipIt] Found PRD at fallback path');
         return await fsPromises.readFile(fallbackPath, 'utf-8');
     } catch (error) {
-        console.log('[PilotFlow] PRD not found at fallback path either');
+        console.log('[ShipIt] PRD not found at fallback path either');
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
             logError('Failed to read PRD.md', error);
         }
@@ -277,7 +277,7 @@ export function getPrdPath(): string | null {
 // User Stories File Management
 // ============================================================================
 
-const USER_STORIES_FILENAME = '.pilotflow/userstories.md';
+const USER_STORIES_FILENAME = '.shipit/userstories.md';
 
 /**
  * Get the user stories file path
@@ -486,63 +486,38 @@ export async function areAllUserStoriesCompleteAsync(taskId: string): Promise<bo
 }
 
 /**
- * Mark a user story as complete in userstories.md
- * Changes "- [ ]" to "- [x]" for the matching story
+ * Mark a user story as complete by updating its checkbox from [ ] to [x]
+ * @param userStoryDescription The description text of the user story to mark complete
+ * @returns true if the user story was found and marked complete, false otherwise
  */
-export async function markUserStoryCompleteAsync(storyDescription: string): Promise<boolean> {
-    const root = getWorkspaceRoot();
-    if (!root) { return false; }
+export async function markUserStoryCompleteAsync(userStoryDescription: string): Promise<boolean> {
+    const content = await readUserStoriesAsync();
+    if (!content) { return false; }
 
-    const storiesPath = path.join(root, '.pilotflow', 'userstories.md');
-    
-    try {
-        const content = await fsPromises.readFile(storiesPath, 'utf-8');
-        
-        // Escape special regex characters in the description
-        const escapedDesc = storyDescription.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        
-        // Match "- [ ]" or "- [-]" followed by the story description
-        const regex = new RegExp(`(- \\[[ -]\\] )${escapedDesc}`, 'g');
-        const newContent = content.replace(regex, `- [x] ${storyDescription}`);
-        
-        if (newContent !== content) {
-            await fsPromises.writeFile(storiesPath, newContent, 'utf-8');
-            return true;
+    const lines = content.split('\n');
+    let modified = false;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        // Match pending or in-progress user story checkbox
+        const match = /^([-*]\s*)\[([ ~])\]\s*(.+)$/im.exec(line);
+        if (match) {
+            const description = match[3].trim();
+            // Check if this is the user story we're looking for
+            if (description === userStoryDescription.trim() || 
+                description.includes(userStoryDescription.trim()) ||
+                userStoryDescription.trim().includes(description)) {
+                // Mark as complete
+                lines[i] = `${match[1]}[x] ${description}`;
+                modified = true;
+                break;
+            }
         }
-        return false;
-    } catch (error) {
-        logError('Failed to mark user story complete', error);
-        return false;
     }
-}
 
-/**
- * Mark a task as complete in PRD.md
- * Changes "- [ ]" to "- [x]" for the matching task
- */
-export async function markTaskCompleteAsync(taskDescription: string): Promise<boolean> {
-    const root = getWorkspaceRoot();
-    if (!root) { return false; }
-
-    const prdPath = path.join(root, 'PRD.md');
+    if (modified) {
+        return await writeUserStoriesAsync(lines.join('\n'));
+    }
     
-    try {
-        const content = await fsPromises.readFile(prdPath, 'utf-8');
-        
-        // Escape special regex characters in the description
-        const escapedDesc = taskDescription.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        
-        // Match "- [ ]" followed by the task description
-        const regex = new RegExp(`(- \\[ \\] )${escapedDesc}`, 'g');
-        const newContent = content.replace(regex, `- [x] ${taskDescription}`);
-        
-        if (newContent !== content) {
-            await fsPromises.writeFile(prdPath, newContent, 'utf-8');
-            return true;
-        }
-        return false;
-    } catch (error) {
-        logError('Failed to mark task complete', error);
-        return false;
-    }
+    return false;
 }

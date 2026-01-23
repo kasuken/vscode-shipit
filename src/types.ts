@@ -29,9 +29,9 @@ export interface Task {
 }
 
 /**
- * Configuration for PilotFlow
+ * Configuration for ShipIt
  */
-export interface PilotFlowConfig {
+export interface ShipItConfig {
     files: {
         prdPath: string;
         progressPath: string;
@@ -45,10 +45,10 @@ export interface PilotFlowConfig {
 /**
  * Default configuration values
  */
-export const DEFAULT_CONFIG: PilotFlowConfig = {
+export const DEFAULT_CONFIG: ShipItConfig = {
     files: {
-        prdPath: '.pilotflow/PRD.md',
-        progressPath: '.pilotflow/progress.txt'
+        prdPath: '.shipit/PRD.md',
+        progressPath: '.shipit/progress.txt'
     },
     prompt: {
         customTemplate: '',
@@ -91,9 +91,9 @@ export const DEFAULT_REQUIREMENTS: TaskRequirements = {
 };
 
 /**
- * PilotFlow settings
+ * ShipIt settings
  */
-export interface PilotFlowSettings {
+export interface ShipItSettings {
     maxIterations: number;
     userStoriesCountPerTask: number;
 }
@@ -101,7 +101,7 @@ export interface PilotFlowSettings {
 /**
  * Default settings
  */
-export const DEFAULT_SETTINGS: PilotFlowSettings = {
+export const DEFAULT_SETTINGS: ShipItSettings = {
     maxIterations: 50,
     userStoriesCountPerTask: 3
 };
@@ -124,7 +124,7 @@ export const INACTIVITY_CHECK_INTERVAL_MS = 10_000;
 /**
  * UI interface for status updates
  */
-export interface IPilotFlowUI {
+export interface IShipItUI {
     updateStatus(status: string, iteration: number, currentTask: string, history: TaskCompletion[]): void;
     updateCountdown(seconds: number): void;
     updateHistory(history: TaskCompletion[]): void;

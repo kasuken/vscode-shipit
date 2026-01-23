@@ -1,31 +1,31 @@
 import * as vscode from 'vscode';
-import { PilotFlowStatusBar } from './statusBar';
+import { ShipItStatusBar } from './statusBar';
 import { LoopOrchestrator } from './orchestrator';
-import { PilotFlowSidebarProvider } from './sidebarProvider';
+import { ShipItSidebarProvider } from './sidebarProvider';
 import { log, disposeLogger, showLogs } from './logger';
 import { getTaskStatsAsync, getNextTaskAsync } from './fileUtils';
 
 /**
- * Main PilotFlow extension class
+ * Main ShipIt extension class
  */
-class PilotFlowExtension {
-    private statusBar: PilotFlowStatusBar;
+class ShipItExtension {
+    private statusBar: ShipItStatusBar;
     private orchestrator: LoopOrchestrator;
-    private sidebarProvider: PilotFlowSidebarProvider;
+    private sidebarProvider: ShipItSidebarProvider;
 
     constructor(private readonly context: vscode.ExtensionContext) {
-        log('PilotFlow extension activating...');
+        log('ShipIt extension activating...');
 
-        this.statusBar = new PilotFlowStatusBar();
+        this.statusBar = new ShipItStatusBar();
         context.subscriptions.push(this.statusBar);
 
         this.orchestrator = new LoopOrchestrator(this.statusBar);
 
         // Create and register sidebar provider
-        this.sidebarProvider = new PilotFlowSidebarProvider(context.extensionUri);
+        this.sidebarProvider = new ShipItSidebarProvider(context.extensionUri);
         context.subscriptions.push(
             vscode.window.registerWebviewViewProvider(
-                PilotFlowSidebarProvider.viewType,
+                ShipItSidebarProvider.viewType,
                 this.sidebarProvider
             )
         );
@@ -36,13 +36,10 @@ class PilotFlowExtension {
         this.registerCommands();
 
         context.subscriptions.push({
-            dispose: () => {
-                // Handle async dispose - fire and forget since VS Code dispose is sync
-                this.disposeAsync().catch(() => { /* ignore errors */ });
-            }
+            dispose: () => this.dispose()
         });
 
-        log('PilotFlow extension activated');
+        log('ShipIt extension activated');
 
         // Check for PRD on startup
         this.checkForPrdOnStartup();
@@ -53,31 +50,31 @@ class PilotFlowExtension {
      */
     private registerCommands(): void {
         this.context.subscriptions.push(
-            vscode.commands.registerCommand('pilotflow.showPanel', () => {
+            vscode.commands.registerCommand('shipit.showPanel', () => {
                 this.showStatus();
             }),
 
-            vscode.commands.registerCommand('pilotflow.start', () => {
+            vscode.commands.registerCommand('shipit.start', () => {
                 this.orchestrator.startLoop();
             }),
 
-            vscode.commands.registerCommand('pilotflow.stop', () => {
+            vscode.commands.registerCommand('shipit.stop', () => {
                 this.orchestrator.stopLoop();
             }),
 
-            vscode.commands.registerCommand('pilotflow.pause', () => {
+            vscode.commands.registerCommand('shipit.pause', () => {
                 this.orchestrator.pauseLoop();
             }),
 
-            vscode.commands.registerCommand('pilotflow.resume', () => {
+            vscode.commands.registerCommand('shipit.resume', () => {
                 this.orchestrator.resumeLoop();
             }),
 
-            vscode.commands.registerCommand('pilotflow.next', () => {
+            vscode.commands.registerCommand('shipit.next', () => {
                 this.orchestrator.runSingleStep();
             }),
 
-            vscode.commands.registerCommand('pilotflow.generatePrd', async () => {
+            vscode.commands.registerCommand('shipit.generatePrd', async () => {
                 const description = await vscode.window.showInputBox({
                     prompt: 'Describe what you want to build',
                     placeHolder: 'e.g., A REST API for managing todo items with user authentication'
@@ -87,19 +84,19 @@ class PilotFlowExtension {
                 }
             }),
 
-            vscode.commands.registerCommand('pilotflow.generateUserStories', async (taskDescription?: string) => {
+            vscode.commands.registerCommand('shipit.generateUserStories', async (taskDescription?: string) => {
                 if (!taskDescription) {
-                    vscode.window.showErrorMessage('PilotFlow: No task specified');
+                    vscode.window.showErrorMessage('ShipIt: No task specified');
                     return;
                 }
                 await this.orchestrator.generateUserStoriesForTask(taskDescription);
             }),
 
-            vscode.commands.registerCommand('pilotflow.generateAllUserStories', async () => {
+            vscode.commands.registerCommand('shipit.generateAllUserStories', async () => {
                 await this.orchestrator.generateAllUserStories();
             }),
 
-            vscode.commands.registerCommand('pilotflow.viewLogs', () => {
+            vscode.commands.registerCommand('shipit.viewLogs', () => {
                 showLogs();
             })
         );
@@ -115,8 +112,8 @@ class PilotFlowExtension {
         const actions: string[] = ['Start', 'Stop', 'Generate PRD', 'View Logs'];
 
         const message = stats.total > 0
-            ? `PilotFlow: ${stats.completed}/${stats.total} tasks complete. ${nextTask ? `Next: ${nextTask.description}` : 'All done!'}`
-            : 'PilotFlow: No PRD found. Generate one or create PRD.md manually.';
+            ? `ShipIt: ${stats.completed}/${stats.total} tasks complete. ${nextTask ? `Next: ${nextTask.description}` : 'All done!'}`
+            : 'ShipIt: No PRD found. Generate one or create PRD.md manually.';
 
         const action = await vscode.window.showInformationMessage(message, ...actions);
 
@@ -128,7 +125,7 @@ class PilotFlowExtension {
                 this.orchestrator.stopLoop();
                 break;
             case 'Generate PRD':
-                vscode.commands.executeCommand('pilotflow.generatePrd');
+                vscode.commands.executeCommand('shipit.generatePrd');
                 break;
             case 'View Logs':
                 showLogs();
@@ -144,41 +141,34 @@ class PilotFlowExtension {
 
         if (stats.total > 0 && stats.pending > 0) {
             const action = await vscode.window.showInformationMessage(
-                `PilotFlow found ${stats.pending} pending task(s) in your PRD. Start executing?`,
-                'Start PilotFlow',
+                `ShipIt found ${stats.pending} pending task(s) in your PRD. Start executing?`,
+                'Start ShipIt',
                 'Later'
             );
 
-            if (action === 'Start PilotFlow') {
+            if (action === 'Start ShipIt') {
                 this.orchestrator.startLoop();
             }
         }
     }
 
     /**
-     * Dispose resources (sync)
+     * Dispose resources
      */
     dispose(): void {
-        this.disposeAsync().catch(() => { /* ignore errors */ });
-    }
-
-    /**
-     * Dispose resources (async)
-     */
-    private async disposeAsync(): Promise<void> {
-        await this.orchestrator.dispose();
+        this.orchestrator.dispose();
         disposeLogger();
     }
 }
 
-let extensionInstance: PilotFlowExtension | null = null;
+let extensionInstance: ShipItExtension | null = null;
 
 export function activate(context: vscode.ExtensionContext): void {
-    extensionInstance = new PilotFlowExtension(context);
+    extensionInstance = new ShipItExtension(context);
 }
 
 export function deactivate(): void {
-    log('PilotFlow extension deactivating...');
+    log('ShipIt extension deactivating...');
     extensionInstance?.dispose();
     extensionInstance = null;
 }

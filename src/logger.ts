@@ -3,11 +3,11 @@ import * as vscode from 'vscode';
 let outputChannel: vscode.OutputChannel | null = null;
 
 /**
- * Get or create the PilotFlow output channel
+ * Get or create the ShipIt output channel
  */
 export function getLogger(): vscode.OutputChannel {
     if (!outputChannel) {
-        outputChannel = vscode.window.createOutputChannel('PilotFlow');
+        outputChannel = vscode.window.createOutputChannel('ShipIt');
     }
     return outputChannel;
 }

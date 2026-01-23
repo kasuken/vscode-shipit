@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
-import { PilotFlowConfig, DEFAULT_CONFIG } from './types';
+import { ShipItConfig, DEFAULT_CONFIG } from './types';
 
 /**
- * Get the current PilotFlow configuration from VS Code settings
+ * Get the current ShipIt configuration from VS Code settings
  */
-export function getConfig(): PilotFlowConfig {
-    const config = vscode.workspace.getConfiguration('pilotflow');
+export function getConfig(): ShipItConfig {
+    const config = vscode.workspace.getConfiguration('shipit');
 
     return {
         files: {

@@ -1,9 +1,9 @@
 {
-  "name": "pilotflow",
-  "displayName": "PilotFlow - Autonomous PRD Development",
+  "name": "shipit",
+  "displayName": "ShipIt - Turn PRDs into Shipped Code",
   "description": "Runs Copilot Agent Mode in a loop to implement tasks from your PRD",
   "version": "0.0.1",
-  "publisher": "pilotflow-dev",
+  "publisher": "shipit-dev",
   "license": "MIT",
   "engines": {
     "vscode": "^1.93.0"
@@ -20,7 +20,7 @@
     "prd",
     "development",
     "loop",
-    "pilotflow",
+    "shipit",
     "autonomous"
   ],
   "activationEvents": [
@@ -31,96 +31,89 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "pilotflow",
-          "title": "PilotFlow",
-          "icon": "$(rocket)"
+          "id": "shipit",
+          "title": "ShipIt",
+          "icon": "$(package)"
         }
       ]
     },
     "views": {
-      "pilotflow": [
+      "shipit": [
         {
           "type": "webview",
-          "id": "pilotflow.sidebar",
-          "name": "PilotFlow",
-          "icon": "$(rocket)"
+          "id": "shipit.sidebar",
+          "name": "ShipIt",
+          "icon": "$(package)"
         }
       ]
     },
     "commands": [
       {
-        "command": "pilotflow.showPanel",
-        "title": "PilotFlow: Open Control Panel",
-        "icon": "$(rocket)"
+        "command": "shipit.showPanel",
+        "title": "ShipIt: Open Control Panel",
+        "icon": "$(package)"
       },
       {
-        "command": "pilotflow.start",
-        "title": "PilotFlow: Start Loop"
+        "command": "shipit.start",
+        "title": "ShipIt: Start Loop"
       },
       {
-        "command": "pilotflow.stop",
-        "title": "PilotFlow: Stop Loop"
+        "command": "shipit.stop",
+        "title": "ShipIt: Stop Loop"
       },
       {
-        "command": "pilotflow.pause",
-        "title": "PilotFlow: Pause Loop"
+        "command": "shipit.pause",
+        "title": "ShipIt: Pause Loop"
       },
       {
-        "command": "pilotflow.resume",
-        "title": "PilotFlow: Resume Loop"
+        "command": "shipit.resume",
+        "title": "ShipIt: Resume Loop"
       },
       {
-        "command": "pilotflow.next",
-        "title": "PilotFlow: Run Single Step"
+        "command": "shipit.next",
+        "title": "ShipIt: Run Single Step"
       },
       {
-        "command": "pilotflow.generatePrd",
-        "title": "PilotFlow: Generate PRD from Description"
+        "command": "shipit.generatePrd",
+        "title": "ShipIt: Generate PRD from Description"
       },
       {
-        "command": "pilotflow.generateUserStories",
-        "title": "PilotFlow: Generate User Stories for Task"
+        "command": "shipit.generateUserStories",
+        "title": "ShipIt: Generate User Stories for Task"
       },
       {
-        "command": "pilotflow.generateAllUserStories",
-        "title": "PilotFlow: Generate All User Stories"
+        "command": "shipit.generateAllUserStories",
+        "title": "ShipIt: Generate All User Stories"
       },
       {
-        "command": "pilotflow.viewLogs",
-        "title": "PilotFlow: View Logs"
+        "command": "shipit.viewLogs",
+        "title": "ShipIt: View Logs"
       }
     ],
     "configuration": {
-      "title": "PilotFlow",
+      "title": "ShipIt",
       "properties": {
-        "pilotflow.files.prdPath": {
+        "shipit.files.prdPath": {
           "type": "string",
-          "default": ".pilotflow/PRD.md",
+          "default": ".shipit/PRD.md",
           "description": "Path to the PRD (Product Requirements Document) file"
         },
-        "pilotflow.files.progressPath": {
+        "shipit.files.progressPath": {
           "type": "string",
-          "default": ".pilotflow/progress.txt",
+          "default": ".shipit/progress.txt",
           "description": "Path to the progress tracking file"
         },
-        "pilotflow.prompt.customTemplate": {
+        "shipit.prompt.customTemplate": {
           "type": "string",
           "default": "",
           "editPresentation": "multilineText",
           "description": "Custom prompt template to override the default. Use {{task}} for the task description, {{prd}} for PRD contents, {{progress}} for progress log, {{requirements}} for requirement steps, and {{workspace}} for workspace path."
         },
-        "pilotflow.prompt.customPrdGenerationTemplate": {
+        "shipit.prompt.customPrdGenerationTemplate": {
           "type": "string",
           "default": "",
           "editPresentation": "multilineText",
           "description": "Custom PRD generation prompt template. Use {{task}} for user's request and {{workspace}} for workspace path."
-        },
-        "pilotflow.userStories.countPerTask": {
-          "type": "number",
-          "default": 3,
-          "minimum": 1,
-          "maximum": 10,
-          "description": "Number of user stories to generate per task"
         }
       }
     }
@@ -134,17 +127,16 @@
     "test": "vscode-test"
   },
   "devDependencies": {
+    "@types/vscode": "^1.93.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
-    "@types/vscode": "^1.93.0",
-    "@vscode/test-cli": "^0.0.12",
-    "@vscode/test-electron": "^2.5.2",
+    "typescript-eslint": "^8.52.0",
     "eslint": "^9.39.2",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.52.0"
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
   },
-  "dependencies": {
-    "@github/copilot-sdk": "^0.1.15",
-    "vscode-jsonrpc": "^8.2.1"
-  }
+  "extensionDependencies": [
+    "github.copilot-chat"
+  ]
 }

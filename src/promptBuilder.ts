@@ -132,7 +132,7 @@ export async function buildAgentPromptAsync(taskDescription: string, requirement
         '   Add a new line describing what was completed, e.g.:',
         `   "Completed: ${sanitizedTask} - [brief summary of changes made]"`,
         '',
-        'Both updates are required for PilotFlow to continue to the next task!',
+        'Both updates are required for ShipIt to continue to the next task!',
         '',
         '═══════════════════════════════════════════════════════════════',
         '                      PROJECT CONTEXT',
@@ -226,7 +226,7 @@ Create a file called \`PRD.md\` in the workspace root with this EXACT structure:
                       ⚠️ IMPORTANT RULES
 ═══════════════════════════════════════════════════════════════
 
-1. **Task Format**: Each task MUST use \`- [ ] \` checkbox format (this is how PilotFlow tracks progress)
+1. **Task Format**: Each task MUST use \`- [ ] \` checkbox format (this is how ShipIt tracks progress)
 2. **Keep it SHORT**: Generate exactly 5-6 tasks maximum. Each task runs as a separate agent request.
 3. **Logical Order**: Order tasks so they can be completed sequentially
 4. **Comprehensive Tasks**: Each task should accomplish a meaningful chunk of work (not too granular!)
@@ -279,7 +279,7 @@ ${prd}
                     REQUIRED OUTPUT FORMAT
 ===================================================================
 
-Create or update the file \`.pilotflow/userstories.md\` with user stories for this task.
+Create or update the file \`.shipit/userstories.md\` with user stories for this task.
 
 Add a new section with this EXACT format:
 
@@ -355,7 +355,7 @@ export async function buildUserStoryImplementationPrompt(
         prd || '(No PRD content found)',
         '└─────────────────────────────────────────────────────────────┘',
         '',
-        '## Current User Stories (.pilotflow/userstories.md):',
+        '## Current User Stories (.shipit/userstories.md):',
         '',
         '┌─────────────────────────────────────────────────────────────┐',
         userStories || '(No user stories content found)',
@@ -372,7 +372,7 @@ export async function buildUserStoryImplementationPrompt(
     parts.push('❌ DO NOT ASK QUESTIONS - Just implement the story completely');
     parts.push('❌ DO NOT wait for confirmation - Finish all tasks autonomously');
     parts.push('❌ DO NOT leave partial implementations - Complete everything');
-    parts.push('❌ DO NOT update userstories.md or progress.txt - PilotFlow handles this');
+    parts.push('❌ DO NOT update userstories.md or progress.txt - ShipIt handles this');
     parts.push('✅ MAKE DECISIONS based on best practices when details are unclear');
     parts.push('✅ IMPLEMENT FULLY - Focus only on coding the feature');
     parts.push('');

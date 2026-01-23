@@ -1,17 +1,19 @@
-# PilotFlow
+# ShipIt
 
 [![GitHub Copilot](https://img.shields.io/badge/GitHub-Copilot%20SDK-blue?style=flat-square&logo=github)](https://github.com/features/copilot)
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.93%2B-blue?style=flat-square&logo=visualstudiocode)](https://code.visualstudio.com)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
-Autonomous PRD development in VS Code. PilotFlow reads your Product Requirements Document (PRD), breaks down tasks into manageable user stories, and autonomously implements them using GitHub Copilot.
+**ShipIt. Turn PRDs into shipped code.**
+
+Autonomous PRD development in VS Code. ShipIt reads your Product Requirements Document (PRD), breaks down tasks into manageable user stories, and autonomously implements them using GitHub Copilot.
 
 > [!IMPORTANT]
 > This extension requires the GitHub Copilot CLI to be installed and authenticated. See [Requirements](#requirements) for details.
 
 ## Overview
 
-PilotFlow is a VS Code extension that orchestrates the GitHub Copilot SDK to implement your PRD in a structured, autonomous workflow. Instead of manual implementation requests, you describe your project requirements in a PRD, and PilotFlow handles the rest:
+ShipIt is a VS Code extension that orchestrates the GitHub Copilot SDK to implement your PRD in a structured, autonomous workflow. Instead of manual implementation requests, you describe your project requirements in a PRD, and ShipIt handles the rest:
 
 1. Reads tasks from your PRD
 2. Generates focused user stories for each task
@@ -56,7 +58,7 @@ The extension provides a sidebar control panel with real-time status, file watch
 
 ### Workflow Details
 
-1. **Task Parsing** - PilotFlow scans your `.pilotflow/PRD.md` for unchecked tasks (`- [ ]`)
+1. **Task Parsing** - ShipIt scans your `.shipit/PRD.md` for unchecked tasks (`- [ ]`)
 2. **Story Generation** - For each task, Copilot generates 3-5 actionable user stories
 3. **Story Implementation** - Each user story is sent to Copilot one at a time for focused implementation
 4. **Automatic Progression** - When a story completes, the checkbox is automatically updated
@@ -85,14 +87,14 @@ Before starting, ensure you have:
 Fastest way to get started:
 
 1. Open Command Palette (Cmd/Ctrl + Shift + P)
-2. Run **PilotFlow: Generate PRD from Description**
-3. Describe your project (e.g., "A todo app with React and Node.js backend")
-4. Copilot creates `.pilotflow/PRD.md` with structured tasks
-5. Run **PilotFlow: Start Loop** to begin implementation
+2. Run **ShipIt: Generate PRD from Description**
+3. Describe your project (e.g., "A REST API for managing todo items with user authentication")
+4. Copilot creates `.shipit/PRD.md` with structured tasks
+5. Run **ShipIt: Start Loop** to begin implementation
 
 ### 2. Use an Existing PRD
 
-If you have a PRD, create `.pilotflow/PRD.md` with task checkboxes:
+If you have a PRD, create `.shipit/PRD.md` with task checkboxes:
 
 ```markdown
 # My Project Name
@@ -105,38 +107,38 @@ If you have a PRD, create `.pilotflow/PRD.md` with task checkboxes:
 - [ ] Write tests and documentation
 ```
 
-Then run **PilotFlow: Start Loop** from the Command Palette.
+Then run **ShipIt: Start Loop** from the Command Palette.
 
 ## Sidebar Control Panel
 
-Click the **🚀** icon in VS Code's Activity Bar to open the PilotFlow sidebar:
+Click the **📦** icon in VS Code's Activity Bar to open the ShipIt sidebar:
 
 - **Progress Stats** - Completed, pending, and current iteration count
 - **Current Task** - Shows both parent task and active user story with elapsed time
 - **Control Buttons** - Start, Stop, Pause, Resume, Single Step
 - **Task List** - View all tasks and their completion status
 - **User Stories** - See user stories for each task with checkmarks
-- **Activity Log** - Real-time log of PilotFlow operations
+- **Activity Log** - Real-time log of ShipIt operations
 
 ## Commands
 
 | Command | Keyboard | Description |
 |---------|----------|-------------|
-| PilotFlow: Start Loop | - | Start autonomous implementation |
-| PilotFlow: Stop Loop | - | Stop the current loop |
-| PilotFlow: Pause Loop | - | Pause execution (can resume) |
-| PilotFlow: Resume Loop | - | Resume from pause |
-| PilotFlow: Run Single Step | - | Execute just the next task |
-| PilotFlow: Generate PRD from Description | - | Create PRD.md from text |
-| PilotFlow: Generate All User Stories | - | Generate stories for all tasks |
-| PilotFlow: View Logs | - | Open the output log |
+| ShipIt: Start Loop | - | Start autonomous implementation |
+| ShipIt: Stop Loop | - | Stop the current loop |
+| ShipIt: Pause Loop | - | Pause execution (can resume) |
+| ShipIt: Resume Loop | - | Resume from pause |
+| ShipIt: Run Single Step | - | Execute just the next task |
+| ShipIt: Generate PRD from Description | - | Create PRD.md from text |
+| ShipIt: Generate All User Stories | - | Generate stories for all tasks |
+| ShipIt: View Logs | - | Open the output log |
 
 ## File Structure
 
-PilotFlow creates and manages files in the `.pilotflow/` directory:
+ShipIt creates and manages files in the `.shipit/` directory:
 
 ```
-.pilotflow/
+.shipit/
 ├── PRD.md              # Product Requirements Document with tasks
 ├── userstories.md      # Generated user stories organized by task
 └── progress.txt        # Log of completed work
@@ -176,15 +178,15 @@ Auto-generated in `userstories.md`, organized by parent task:
 
 ## Configuration
 
-Access settings via VS Code Settings (Cmd/Ctrl + ,) and search for "PilotFlow":
+Access settings via VS Code Settings (Cmd/Ctrl + ,) and search for "ShipIt":
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `pilotflow.files.prdPath` | `.pilotflow/PRD.md` | Path to the PRD file |
-| `pilotflow.files.progressPath` | `.pilotflow/progress.txt` | Path to the progress log |
-| `pilotflow.userStories.countPerTask` | `3` | Number of user stories per task (1-10) |
-| `pilotflow.prompt.customTemplate` | (empty) | Custom prompt template for tasks |
-| `pilotflow.prompt.customPrdGenerationTemplate` | (empty) | Custom PRD generation template |
+| `shipit.files.prdPath` | `.shipit/PRD.md` | Path to the PRD file |
+| `shipit.files.progressPath` | `.shipit/progress.txt` | Path to the progress log |
+| `shipit.userStories.countPerTask` | `3` | Number of user stories per task (1-10) |
+| `shipit.prompt.customTemplate` | (empty) | Custom prompt template for tasks |
+| `shipit.prompt.customPrdGenerationTemplate` | (empty) | Custom PRD generation template |
 
 ### Custom Prompt Templates
 
@@ -242,7 +244,7 @@ src/
 - Verify your Copilot subscription is active
 
 ### Copilot seems stuck
-- PilotFlow alerts after 60 seconds of inactivity
+- ShipIt alerts after 60 seconds of inactivity
 - Check the sidebar for current activity
 - Click **Stop** and review the logs
 - Try running a **Single Step** to debug
@@ -251,7 +253,7 @@ src/
 
 | Status | Icon | Meaning |
 |--------|------|---------|
-| Idle | 🚀 | PilotFlow ready, click to open panel |
+| Idle | 📦 | ShipIt ready, click to open panel |
 | Running | 🔄 | Processing task #N |
 | Waiting | ⏱️ | Waiting for Copilot to complete |
 | Paused | ⏸️ | Execution paused |

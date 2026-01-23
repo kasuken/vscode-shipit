@@ -2,12 +2,12 @@ import * as vscode from 'vscode';
 import {
     TaskCompletion,
     TaskRequirements,
-    PilotFlowSettings,
+    ShipItSettings,
     DEFAULT_REQUIREMENTS,
     DEFAULT_SETTINGS
 } from './types';
 import { logError, logInfo } from './logger';
-import { getWorkspaceRoot, markUserStoryCompleteAsync, markTaskCompleteAsync, appendProgressAsync } from './fileUtils';
+import { getWorkspaceRoot, markUserStoryCompleteAsync, appendProgressAsync } from './fileUtils';
 import { buildAgentPromptAsync, buildPrdGenerationPrompt, buildUserStoriesGenerationPrompt, buildUserStoryImplementationPrompt } from './promptBuilder';
 import { getCopilotService, CopilotSdkService } from './copilotSdk';
 import { formatDuration } from './timerManager';
@@ -20,7 +20,7 @@ export type TaskCompletionCallback = (type: 'user-story' | 'task', description: 
  */
 export class TaskRunner {
     private requirements: TaskRequirements = { ...DEFAULT_REQUIREMENTS };
-    private settings: PilotFlowSettings = { ...DEFAULT_SETTINGS };
+    private settings: ShipItSettings = { ...DEFAULT_SETTINGS };
     private taskHistory: TaskCompletion[] = [];
     private taskStartTime = 0;
     private currentTaskDescription = '';
@@ -68,7 +68,7 @@ export class TaskRunner {
     /**
      * Set settings
      */
-    setSettings(settings: PilotFlowSettings): void {
+    setSettings(settings: ShipItSettings): void {
         this.settings = settings;
         this.log('Updated settings');
     }
@@ -76,7 +76,7 @@ export class TaskRunner {
     /**
      * Get current settings
      */
-    getSettings(): PilotFlowSettings {
+    getSettings(): ShipItSettings {
         return this.settings;
     }
 
@@ -190,7 +190,7 @@ export class TaskRunner {
     async triggerPrdGeneration(taskDescription: string): Promise<boolean> {
         const root = getWorkspaceRoot();
         if (!root) {
-            vscode.window.showErrorMessage('PilotFlow: No workspace folder open');
+            vscode.window.showErrorMessage('ShipIt: No workspace folder open');
             return false;
         }
 
