@@ -139,18 +139,20 @@ export async function buildAgentPromptAsync(taskDescription: string, requirement
         '═══════════════════════════════════════════════════════════════',
         '',
         '## Current PRD.md Contents:',
-        '```markdown',
-        prd,
-        '```',
+        '',
+        '┌─────────────────────────────────────────────────────────────┐',
+        prd || '(No PRD content found)',
+        '└─────────────────────────────────────────────────────────────┘',
         ''
     ];
 
     if (progress && progress.trim()) {
         parts.push('## Progress Log (progress.txt):');
         parts.push('This file tracks completed work. Append your progress here when done.');
-        parts.push('```');
+        parts.push('');
+        parts.push('┌─────────────────────────────────────────────────────────────┐');
         parts.push(progress);
-        parts.push('```');
+        parts.push('└─────────────────────────────────────────────────────────────┘');
         parts.push('');
     } else {
         parts.push('## Progress Log (progress.txt):');
@@ -367,28 +369,41 @@ export async function buildUserStoryImplementationPrompt(
         '═══════════════════════════════════════════════════════════════',
         '',
         '## Current PRD.md Contents:',
-        '```markdown',
-        prd,
-        '```',
+        '',
+        '┌─────────────────────────────────────────────────────────────┐',
+        prd || '(No PRD content found)',
+        '└─────────────────────────────────────────────────────────────┘',
         '',
         '## Current User Stories (.pilotflow/userstories.md):',
-        '```markdown',
-        userStories,
-        '```',
+        '',
+        '┌─────────────────────────────────────────────────────────────┐',
+        userStories || '(No user stories content found)',
+        '└─────────────────────────────────────────────────────────────┘',
         ''
     ];
 
     if (progress && progress.trim()) {
         parts.push('## Progress Log (.pilotflow/progress.txt):');
-        parts.push('```');
+        parts.push('');
+        parts.push('┌─────────────────────────────────────────────────────────────┐');
         parts.push(progress);
-        parts.push('```');
+        parts.push('└─────────────────────────────────────────────────────────────┘');
         parts.push('');
     }
 
     parts.push('═══════════════════════════════════════════════════════════════');
     parts.push('                       WORKFLOW REMINDER');
     parts.push('═══════════════════════════════════════════════════════════════');
+    parts.push('');
+    parts.push('⚠️ CRITICAL INSTRUCTIONS:');
+    parts.push('');
+    parts.push('❌ DO NOT ASK QUESTIONS - Just implement the story completely');
+    parts.push('❌ DO NOT wait for confirmation - Finish all tasks autonomously');
+    parts.push('❌ DO NOT leave partial implementations - Complete everything');
+    parts.push('✅ MAKE DECISIONS based on best practices when details are unclear');
+    parts.push('✅ IMPLEMENT FULLY and update tracking files when done');
+    parts.push('');
+    parts.push('Steps to complete:');
     parts.push('');
     parts.push('1. ✅ Implement this user story');
 
@@ -409,7 +424,7 @@ export async function buildUserStoryImplementationPrompt(
     parts.push('');
     parts.push(`Workspace: ${root}`);
     parts.push('');
-    parts.push('Begin now. Remember: updating userstories.md when done is MANDATORY!');
+    parts.push('Begin now. Remember: NO QUESTIONS - implement fully and update tracking files!');
 
     return parts.join('\n');
 }

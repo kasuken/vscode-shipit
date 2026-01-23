@@ -241,48 +241,121 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
             padding: 12px;
             line-height: 1.4;
         }
+
+        /* ===== ANIMATIONS ===== */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 5px rgba(var(--glow-color), 0.3); }
+            50% { box-shadow: 0 0 15px rgba(var(--glow-color), 0.6); }
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes progress {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 100% 50%; }
+        }
+        @keyframes ripple {
+            0% { transform: scale(1); opacity: 0.4; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+
+        /* ===== HEADER ===== */
         .header {
             display: flex;
             align-items: center;
             justify-content: space-between;
             margin-bottom: 16px;
-            padding-bottom: 8px;
+            padding-bottom: 12px;
             border-bottom: 1px solid var(--vscode-panel-border);
         }
         .header h2 {
-            font-size: 14px;
+            font-size: 15px;
             font-weight: 600;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
         }
+        .header-icon {
+            font-size: 18px;
+            animation: bounce 2s ease-in-out infinite;
+        }
+        .header.running .header-icon {
+            animation: spin 2s linear infinite;
+        }
+        .header.waiting .header-icon {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        /* ===== STATUS BADGE ===== */
         .status-badge {
             display: inline-flex;
             align-items: center;
-            gap: 4px;
-            padding: 2px 8px;
-            border-radius: 10px;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 12px;
             font-size: 11px;
-            font-weight: 500;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
         }
         .status-idle {
             background: var(--vscode-badge-background);
             color: var(--vscode-badge-foreground);
         }
+        .status-idle .status-dot {
+            background: var(--vscode-descriptionForeground);
+        }
         .status-running {
-            background: var(--vscode-charts-green);
+            background: linear-gradient(135deg, #10b981, #059669);
             color: white;
+            --glow-color: 16, 185, 129;
+            animation: glow 2s ease-in-out infinite;
+        }
+        .status-running .status-dot {
+            animation: pulse 1s ease-in-out infinite;
         }
         .status-waiting {
-            background: var(--vscode-charts-yellow);
-            color: black;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            --glow-color: 245, 158, 11;
+            animation: glow 1.5s ease-in-out infinite;
+        }
+        .status-waiting .status-dot {
+            animation: pulse 0.8s ease-in-out infinite;
         }
         .status-paused {
-            background: var(--vscode-charts-orange);
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
             color: white;
         }
+
+        /* ===== SECTIONS ===== */
         .section {
             margin-bottom: 16px;
+            animation: fadeIn 0.3s ease;
         }
         .section-title {
             font-size: 11px;
@@ -290,7 +363,17 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
             text-transform: uppercase;
             color: var(--vscode-descriptionForeground);
             margin-bottom: 8px;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
+        .section-title-links {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* ===== STATS GRID ===== */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -299,86 +382,241 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
         .stat-box {
             background: var(--vscode-editor-background);
             border: 1px solid var(--vscode-panel-border);
-            border-radius: 4px;
-            padding: 8px;
+            border-radius: 8px;
+            padding: 12px 8px;
             text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-box:hover {
+            border-color: var(--vscode-focusBorder);
+            transform: translateY(-1px);
+        }
+        .stat-box.highlight {
+            border-color: var(--vscode-charts-green);
+        }
+        .stat-box.highlight::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--vscode-charts-green), var(--vscode-charts-blue));
         }
         .stat-value {
-            font-size: 18px;
-            font-weight: 600;
+            font-size: 22px;
+            font-weight: 700;
             color: var(--vscode-foreground);
+            line-height: 1;
         }
         .stat-label {
-            font-size: 10px;
+            font-size: 9px;
             color: var(--vscode-descriptionForeground);
             text-transform: uppercase;
+            margin-top: 4px;
+            letter-spacing: 0.5px;
         }
-        .current-task {
-            background: var(--vscode-editor-background);
+
+        /* ===== PROGRESS BAR ===== */
+        .progress-container {
+            margin-top: 12px;
+        }
+        .progress-bar {
+            height: 6px;
+            background: var(--vscode-progressBar-background);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--vscode-charts-green), var(--vscode-charts-blue));
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+        .progress-fill.animated {
+            background: linear-gradient(90deg, var(--vscode-charts-green), var(--vscode-charts-blue), var(--vscode-charts-green));
+            background-size: 200% 100%;
+            animation: progress 2s linear infinite;
+        }
+
+        /* ===== ELAPSED TIME ===== */
+        .elapsed-container {
+            background: linear-gradient(135deg, var(--vscode-editor-background), var(--vscode-input-background));
             border: 1px solid var(--vscode-panel-border);
-            border-radius: 4px;
-            padding: 10px;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
         }
-        .current-task-label {
+        .elapsed-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+            animation: shimmer 2s infinite;
+        }
+        @keyframes shimmer {
+            100% { left: 100%; }
+        }
+        .elapsed-label {
             font-size: 10px;
             color: var(--vscode-descriptionForeground);
             text-transform: uppercase;
             margin-bottom: 4px;
         }
-        .current-task-text {
-            font-size: 12px;
-            word-break: break-word;
+        .elapsed-time {
+            font-size: 28px;
+            font-weight: 700;
+            font-family: 'Consolas', 'Monaco', monospace;
+            letter-spacing: 2px;
         }
+
+        /* ===== COUNTDOWN ===== */
         .countdown {
             text-align: center;
-            padding: 12px;
-            background: var(--vscode-inputValidation-infoBackground);
+            padding: 16px;
+            background: linear-gradient(135deg, var(--vscode-inputValidation-infoBackground), rgba(0,100,200,0.1));
             border: 1px solid var(--vscode-inputValidation-infoBorder);
-            border-radius: 4px;
+            border-radius: 8px;
             display: none;
+            position: relative;
         }
         .countdown.visible {
             display: block;
+            animation: fadeIn 0.3s ease;
         }
         .countdown-value {
-            font-size: 24px;
-            font-weight: bold;
+            font-size: 36px;
+            font-weight: 700;
+            font-family: 'Consolas', 'Monaco', monospace;
+            position: relative;
+        }
+        .countdown-ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            border: 3px solid var(--vscode-focusBorder);
+            border-radius: 50%;
+            opacity: 0;
+            animation: ripple 1s ease-out infinite;
         }
         .countdown-label {
             font-size: 11px;
             color: var(--vscode-descriptionForeground);
+            margin-top: 4px;
         }
+
+        /* ===== CURRENT TASK ===== */
+        .current-task {
+            background: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 8px;
+            padding: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+        .current-task.active {
+            border-color: var(--vscode-charts-yellow);
+        }
+        .current-task.active::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--vscode-charts-yellow), var(--vscode-charts-orange));
+        }
+        .current-task-label {
+            font-size: 10px;
+            color: var(--vscode-descriptionForeground);
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .current-task-label .spinner {
+            width: 10px;
+            height: 10px;
+            border: 2px solid var(--vscode-charts-yellow);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        .current-task-text {
+            font-size: 12px;
+            word-break: break-word;
+            line-height: 1.5;
+        }
+
+        /* ===== BUTTONS ===== */
         .buttons {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 8px;
         }
         .btn-row {
             display: flex;
-            gap: 6px;
+            gap: 8px;
         }
         button {
             flex: 1;
-            padding: 8px 12px;
+            padding: 10px 14px;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             font-size: 12px;
+            font-weight: 500;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 4px;
-            transition: opacity 0.2s;
+            gap: 6px;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.3s, height 0.3s;
+        }
+        button:hover::before {
+            width: 150%;
+            height: 150%;
         }
         button:hover {
-            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        button:active {
+            transform: translateY(0);
         }
         button:disabled {
-            opacity: 0.5;
+            opacity: 0.4;
             cursor: not-allowed;
+            transform: none;
+        }
+        button:disabled::before {
+            display: none;
         }
         .btn-primary {
-            background: var(--vscode-button-background);
+            background: linear-gradient(135deg, var(--vscode-button-background), var(--vscode-button-hoverBackground));
             color: var(--vscode-button-foreground);
         }
         .btn-secondary {
@@ -386,54 +624,86 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
             color: var(--vscode-button-secondaryForeground);
         }
         .btn-danger {
-            background: var(--vscode-errorForeground);
+            background: linear-gradient(135deg, #ef4444, #dc2626);
             color: white;
         }
+        .btn-success {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+
+        /* ===== TASK LIST ===== */
         .task-list {
-            max-height: 200px;
+            max-height: 220px;
             overflow-y: auto;
+            padding-right: 4px;
+        }
+        .task-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .task-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .task-list::-webkit-scrollbar-thumb {
+            background: var(--vscode-scrollbarSlider-background);
+            border-radius: 3px;
         }
         .task-item {
             display: flex;
             align-items: flex-start;
-            gap: 8px;
-            padding: 6px 0;
+            gap: 10px;
+            padding: 8px 0;
             border-bottom: 1px solid var(--vscode-panel-border);
             font-size: 12px;
+            animation: slideIn 0.3s ease;
         }
         .task-item:last-child {
             border-bottom: none;
         }
+        .task-item:hover {
+            background: rgba(255,255,255,0.02);
+            margin: 0 -4px;
+            padding-left: 4px;
+            padding-right: 4px;
+            border-radius: 4px;
+        }
         .task-checkbox {
-            width: 14px;
-            height: 14px;
-            border: 1px solid var(--vscode-checkbox-border);
-            border-radius: 3px;
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--vscode-checkbox-border);
+            border-radius: 4px;
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-            margin-top: 2px;
+            margin-top: 1px;
+            font-size: 10px;
+            transition: all 0.2s ease;
         }
         .task-checkbox.completed {
-            background: var(--vscode-charts-green);
-            border-color: var(--vscode-charts-green);
+            background: linear-gradient(135deg, #10b981, #059669);
+            border-color: #10b981;
+            color: white;
         }
         .task-checkbox.blocked {
-            background: var(--vscode-errorForeground);
-            border-color: var(--vscode-errorForeground);
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            border-color: #ef4444;
+            color: white;
         }
         .task-checkbox.in-progress {
-            background: var(--vscode-charts-yellow);
-            border-color: var(--vscode-charts-yellow);
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            border-color: #f59e0b;
+            color: white;
+            animation: pulse 1.5s ease-in-out infinite;
         }
         .task-text {
             flex: 1;
             word-break: break-word;
+            line-height: 1.4;
         }
         .task-text.completed {
             text-decoration: line-through;
-            opacity: 0.7;
+            opacity: 0.6;
         }
         .task-actions {
             display: flex;
@@ -441,70 +711,124 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
             flex-shrink: 0;
         }
         .task-action-btn {
-            padding: 2px 6px;
+            padding: 4px 8px;
             font-size: 10px;
             border: none;
-            border-radius: 3px;
+            border-radius: 4px;
             cursor: pointer;
             background: var(--vscode-button-secondaryBackground);
             color: var(--vscode-button-secondaryForeground);
             white-space: nowrap;
+            transition: all 0.2s ease;
+            font-weight: 500;
         }
         .task-action-btn:hover {
-            opacity: 0.9;
+            background: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            transform: scale(1.05);
         }
         .task-action-btn.has-stories {
-            background: var(--vscode-charts-green);
+            background: linear-gradient(135deg, #10b981, #059669);
             color: white;
             cursor: default;
         }
+        .task-action-btn.has-stories:hover {
+            transform: none;
+        }
+
+        /* ===== LOGS ===== */
         .logs-container {
             max-height: 150px;
             overflow-y: auto;
             background: var(--vscode-editor-background);
             border: 1px solid var(--vscode-panel-border);
-            border-radius: 4px;
-            padding: 8px;
-            font-family: var(--vscode-editor-font-family);
+            border-radius: 6px;
+            padding: 10px;
+            font-family: 'Consolas', 'Monaco', var(--vscode-editor-font-family), monospace;
             font-size: 11px;
         }
+        .logs-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        .logs-container::-webkit-scrollbar-thumb {
+            background: var(--vscode-scrollbarSlider-background);
+            border-radius: 3px;
+        }
         .log-entry {
-            padding: 2px 0;
+            padding: 3px 0;
             word-break: break-word;
+            border-left: 2px solid transparent;
+            padding-left: 8px;
+            margin-left: -8px;
+            animation: slideIn 0.2s ease;
         }
         .log-entry.highlight {
-            color: var(--vscode-charts-green);
-            font-weight: 500;
+            color: #10b981;
+            font-weight: 600;
+            border-left-color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
         }
+        .log-entry.error {
+            color: #ef4444;
+            border-left-color: #ef4444;
+        }
+        .log-entry.warning {
+            color: #f59e0b;
+            border-left-color: #f59e0b;
+        }
+
+        /* ===== EMPTY STATE ===== */
         .empty-state {
             text-align: center;
-            padding: 20px;
+            padding: 24px;
             color: var(--vscode-descriptionForeground);
         }
         .empty-state-icon {
-            font-size: 32px;
+            font-size: 40px;
+            margin-bottom: 12px;
+            opacity: 0.7;
+        }
+        .empty-state-text {
             margin-bottom: 8px;
         }
+
+        /* ===== LINKS ===== */
         .link {
             color: var(--vscode-textLink-foreground);
             cursor: pointer;
-            text-decoration: underline;
+            text-decoration: none;
+            font-size: 11px;
+            transition: opacity 0.2s;
         }
+        .link:hover {
+            text-decoration: underline;
+            opacity: 0.8;
+        }
+
+        /* ===== UTILITY ===== */
         .hidden {
             display: none !important;
+        }
+        .divider {
+            height: 1px;
+            background: var(--vscode-panel-border);
+            margin: 16px 0;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h2>🚀 PilotFlow</h2>
-        <span id="statusBadge" class="status-badge status-idle">Idle</span>
+    <div id="header" class="header">
+        <h2><span class="header-icon">🚀</span> PilotFlow</h2>
+        <span id="statusBadge" class="status-badge status-idle">
+            <span class="status-dot"></span>
+            <span id="statusText">Idle</span>
+        </span>
     </div>
 
     <div class="section">
         <div class="section-title">Progress</div>
         <div class="stats-grid">
-            <div class="stat-box">
+            <div class="stat-box" id="doneBox">
                 <div class="stat-value" id="completedCount">0</div>
                 <div class="stat-label">Done</div>
             </div>
@@ -517,23 +841,32 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
                 <div class="stat-label">Iteration</div>
             </div>
         </div>
+        <div id="progressContainer" class="progress-container hidden">
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+            </div>
+        </div>
     </div>
 
     <div id="elapsedSection" class="section hidden">
-        <div class="current-task" style="text-align: center; padding: 8px;">
-            <div class="current-task-label">Elapsed Time</div>
-            <div id="elapsedTime" style="font-size: 18px; font-weight: 600;">00:00:00</div>
+        <div class="elapsed-container">
+            <div class="elapsed-label">⏱️ Elapsed Time</div>
+            <div id="elapsedTime" class="elapsed-time">00:00:00</div>
         </div>
     </div>
 
     <div id="countdownSection" class="section countdown">
+        <div class="countdown-ring"></div>
         <div class="countdown-value" id="countdownValue">0</div>
-        <div class="countdown-label">Next task in seconds</div>
+        <div class="countdown-label">seconds until next task</div>
     </div>
 
     <div id="currentTaskSection" class="section hidden">
-        <div class="current-task">
-            <div class="current-task-label">Current Task</div>
+        <div id="currentTaskBox" class="current-task">
+            <div class="current-task-label">
+                <span class="spinner"></span>
+                Working On
+            </div>
             <div class="current-task-text" id="currentTaskText"></div>
         </div>
     </div>
@@ -543,41 +876,44 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
         <div class="buttons">
             <div class="btn-row">
                 <button id="btnStart" class="btn-primary">
-                    ▶ Start
+                    ▶️ Start
                 </button>
                 <button id="btnStop" class="btn-danger" disabled>
-                    ⏹ Stop
+                    ⏹️ Stop
                 </button>
             </div>
             <div class="btn-row">
                 <button id="btnPause" class="btn-secondary" disabled>
-                    ⏸ Pause
+                    ⏸️ Pause
                 </button>
-                <button id="btnResume" class="btn-secondary" disabled>
-                    ▶ Resume
+                <button id="btnResume" class="btn-success" disabled>
+                    ▶️ Resume
                 </button>
             </div>
             <div class="btn-row">
                 <button id="btnNext" class="btn-secondary">
-                    ⏭ Single Step
+                    ⏭️ Single Step
                 </button>
                 <button id="btnGenerate" class="btn-secondary">
                     📝 Generate PRD
                 </button>
             </div>
+        </div>
     </div>
 
     <div class="section">
         <div class="section-title">
-            Tasks 
-            <span id="generateAllStoriesLink" class="link" style="float: right; font-weight: normal; margin-right: 8px;">[Gen All Stories]</span>
-            <span id="openPrdLink" class="link" style="float: right; font-weight: normal;">[Open PRD]</span>
+            <span>Tasks</span>
+            <div class="section-title-links">
+                <span id="generateAllStoriesLink" class="link">[Gen All Stories]</span>
+                <span id="openPrdLink" class="link">[Open PRD]</span>
+            </div>
         </div>
         <div id="taskList" class="task-list">
             <div class="empty-state">
                 <div class="empty-state-icon">📋</div>
-                <div>No PRD found</div>
-                <div id="generatePrdLink" class="link">Generate one</div>
+                <div class="empty-state-text">No PRD found</div>
+                <div id="generatePrdLink" class="link">Generate one →</div>
             </div>
         </div>
     </div>
@@ -585,17 +921,17 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
     <div class="section" id="userStoriesSection">
         <div class="section-title">User Stories</div>
         <div id="userStoriesList" class="task-list">
-            <div class="empty-state" style="padding: 10px;">No user stories yet</div>
+            <div class="empty-state" style="padding: 12px;">No user stories yet</div>
         </div>
     </div>
 
     <div class="section">
         <div class="section-title">
-            Activity Log
-            <span id="viewLogsLink" class="link" style="float: right; font-weight: normal;">[Full Logs]</span>
+            <span>Activity Log</span>
+            <span id="viewLogsLink" class="link">[Full Logs]</span>
         </div>
         <div id="logsContainer" class="logs-container">
-            <div class="empty-state" style="padding: 10px;">No activity yet</div>
+            <div class="empty-state" style="padding: 12px;">Waiting for activity...</div>
         </div>
     </div>
 
@@ -653,21 +989,53 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
 
         // Update UI based on state
         function updateUI() {
-            // Status badge
+            // Header and status badge with animations
+            const header = document.getElementById('header');
             const badge = document.getElementById('statusBadge');
+            const statusTextEl = document.getElementById('statusText');
+            
+            // Update header class for animation
+            header.className = 'header ' + state.status;
+            
             badge.className = 'status-badge status-' + state.status;
             const statusText = {
                 'idle': 'Idle',
-                'running': 'Running #' + state.iteration,
+                'running': 'Running',
                 'waiting': 'Waiting',
                 'paused': 'Paused'
             };
-            badge.textContent = statusText[state.status] || state.status;
+            statusTextEl.textContent = state.iteration > 0 && state.status !== 'idle' 
+                ? statusText[state.status] + ' #' + state.iteration 
+                : statusText[state.status] || state.status;
 
             // Stats
-            document.getElementById('completedCount').textContent = state.stats.completed || 0;
+            const completedEl = document.getElementById('completedCount');
+            const prevCompleted = parseInt(completedEl.textContent) || 0;
+            const newCompleted = state.stats.completed || 0;
+            completedEl.textContent = newCompleted;
+            
+            // Highlight done box when count increases
+            const doneBox = document.getElementById('doneBox');
+            if (newCompleted > prevCompleted) {
+                doneBox.classList.add('highlight');
+                setTimeout(() => doneBox.classList.remove('highlight'), 2000);
+            }
+            
             document.getElementById('pendingCount').textContent = state.stats.pending || 0;
             document.getElementById('iterationCount').textContent = state.iteration;
+
+            // Progress bar
+            const progressContainer = document.getElementById('progressContainer');
+            const progressFill = document.getElementById('progressFill');
+            const total = (state.stats.completed || 0) + (state.stats.pending || 0);
+            if (total > 0) {
+                progressContainer.classList.remove('hidden');
+                const percentage = Math.round((state.stats.completed / total) * 100);
+                progressFill.style.width = percentage + '%';
+                progressFill.classList.toggle('animated', state.status === 'running' || state.status === 'waiting');
+            } else {
+                progressContainer.classList.add('hidden');
+            }
 
             // Elapsed time
             const elapsedSection = document.getElementById('elapsedSection');
@@ -691,11 +1059,14 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
 
             // Current task
             const currentTaskSection = document.getElementById('currentTaskSection');
+            const currentTaskBox = document.getElementById('currentTaskBox');
             if (state.currentTask && (state.status === 'running' || state.status === 'waiting')) {
                 currentTaskSection.classList.remove('hidden');
+                currentTaskBox.classList.add('active');
                 document.getElementById('currentTaskText').textContent = state.currentTask;
             } else {
                 currentTaskSection.classList.add('hidden');
+                currentTaskBox.classList.remove('active');
             }
 
             // Buttons
@@ -723,7 +1094,7 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
             const genAllLink = document.getElementById('generateAllStoriesLink');
             
             if (!state.tasks || state.tasks.length === 0) {
-                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><div>No PRD found</div><div id="generatePrdLinkEmpty" class="link">Generate one</div></div>';
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-text">No PRD found</div><div id="generatePrdLinkEmpty" class="link">Generate one →</div></div>';
                 if (genAllLink) { genAllLink.style.display = 'none'; }
                 // Re-attach event listener for dynamically created link
                 const link = document.getElementById('generatePrdLinkEmpty');
@@ -861,13 +1232,19 @@ export class PilotFlowSidebarProvider implements vscode.WebviewViewProvider, IPi
             const container = document.getElementById('logsContainer');
             
             if (!state.logs || state.logs.length === 0) {
-                container.innerHTML = '<div class="empty-state" style="padding: 10px;">No activity yet</div>';
+                container.innerHTML = '<div class="empty-state" style="padding: 12px;">Waiting for activity...</div>';
                 return;
             }
 
-            const html = state.logs.slice(-20).map(log => {
+            const html = state.logs.slice(-25).map(log => {
                 const isHighlight = log.startsWith('⭐');
-                return '<div class="log-entry' + (isHighlight ? ' highlight' : '') + '">' + escapeHtml(log) + '</div>';
+                const isError = log.includes('Error') || log.includes('Failed') || log.includes('❌');
+                const isWarning = log.includes('⚠️') || log.includes('Warning');
+                let className = 'log-entry';
+                if (isHighlight) className += ' highlight';
+                if (isError) className += ' error';
+                if (isWarning) className += ' warning';
+                return '<div class="' + className + '">' + escapeHtml(log) + '</div>';
             }).join('');
 
             container.innerHTML = html;
