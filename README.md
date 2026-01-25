@@ -2,6 +2,7 @@
 
 [![GitHub Copilot](https://img.shields.io/badge/GitHub-Copilot%20SDK-blue?style=flat-square&logo=github)](https://github.com/features/copilot)
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.93%2B-blue?style=flat-square&logo=visualstudiocode)](https://code.visualstudio.com)
+[![VS Code Marketplace](https://img.shields.io/badge/VS%20Code-Marketplace-007ACC?style=flat-square&logo=visualstudiocode)](https://marketplace.visualstudio.com/items?itemName=emanuelebartolesi.shipit)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
 **ShipIt. Turn PRDs into shipped code.**
