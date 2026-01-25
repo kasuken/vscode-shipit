@@ -1,28 +1,39 @@
-# Change Log
+# Changelog
 
-All notable changes to the "shipit" extension will be documented in this file.
+All notable changes to the **ShipIt** VS Code extension will be documented in this file.
 
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
+## [1.0.0] - 2026-01-25
 
-## [0.1.0] - 2024
+### New Features
+- Autonomous “task loop” that reads a PRD checklist and iterates until all tasks are complete
+- Activity Bar sidebar control panel with Start/Stop/Pause/Resume plus a single-step mode
+- PRD generator command to create a structured task list from a natural-language description
+- User stories workflow: generate per-task stories in `.shipit/userstories.md`, then implement stories one-by-one
+- Progress logging with timestamps in `.shipit/progress.txt`
+- Copilot SDK integration with streaming, retry/backoff, and automatic tool permission approval for autonomous runs
+- Inactivity detection with recovery actions (continue waiting, retry, skip, stop)
 
-### Added
-- **User Stories Workflow** - Tasks are now broken into 3-5 user stories for more granular implementation
-- **User Stories File** - `.shipit/userstories.md` stores generated user stories per task
-- **Sidebar User Stories Section** - View user stories grouped by task with completion progress
-- **Two-tier Implementation** - Generate user stories → implement each one → mark task complete
-- Sidebar control panel with real-time status
-- PRD generation from natural language description
-- Progress tracking in `.shipit/progress.txt`
-- File watchers for automatic completion detection
-- Inactivity detection with countdown timer
-- Pause/Resume functionality
-- Single-step execution mode
+### Bug Fixes
+- Improved completion detection with file watching plus a periodic fallback check
+- Safer prompt construction (sanitization and guardrails for overly large prompts)
+- Removed outdated prompt placeholders and deprecated templates/commands during the transition to the SDK-based workflow
 
-### Changed
-- Default file location moved to `.shipit/` subfolder
-- Simplified PRD template (removed Overview and Tech Stack sections)
+### Documentation Updates
+- Expanded README with prerequisites (Copilot CLI), end-to-end workflow, architecture overview, and troubleshooting
+- Added/updated extension branding assets (logo and screenshots)
 
-## [Unreleased]
+### Configuration Changes
+- Added settings to customize file locations:
+	- `shipit.files.prdPath` (default: `.shipit/PRD.md`)
+	- `shipit.files.progressPath` (default: `.shipit/progress.txt`)
+- Added settings to override prompts:
+	- `shipit.prompt.customTemplate`
+	- `shipit.prompt.customPrdGenerationTemplate`
 
-- Initial release
+### Acknowledgments
+- Built on top of GitHub Copilot (requires the Copilot CLI and the `github.copilot-chat` extension)
+- Thanks to everyone who tested early versions and provided feedback
+
+### License Information
+- MIT License (see [LICENSE](LICENSE))
+
