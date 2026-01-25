@@ -181,6 +181,10 @@ Auto-generated in `userstories.md`, organized by parent task:
 - [ ] Create database schemas and migrations
 ```
 
+## Demo
+
+![shipit-hq](https://github.com/user-attachments/assets/f32542eb-e4ef-4adf-bf4c-bbdd5a206a2c)
+
 ## Configuration
 
 Access settings via VS Code Settings (Cmd/Ctrl + ,) and search for "ShipIt":
