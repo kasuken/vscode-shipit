@@ -2,7 +2,7 @@
   "name": "shipit",
   "displayName": "ShipIt",
   "description": "Runs Copilot Agent Mode in a loop to implement tasks from your PRD",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "publisher": "emanuelebartolesi",
   "icon": "img/logo.png",
   "sponsor": {
