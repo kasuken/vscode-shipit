@@ -11,6 +11,19 @@
 <img width="787" height="1127" alt="ShipIt" src="https://github.com/user-attachments/assets/aad5b973-4f3b-4d15-8156-62e741050dd1" />
 </div>
 
+<p align="center">
+  <a href="#overview">Overview</a> •
+  <a href="#features">Features</a> •
+  <a href="#how-it-works">How It Works</a> •
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#sidebar-control-panel">Sidebar</a> •
+  <a href="#commands">Commands</a> •
+  <a href="#demo">Demo</a> •
+  <a href="#configuration">Configuration</a> •
+  <a href="#requirements">Requirements</a> •
+  <a href="#troubleshooting">Troubleshooting</a>
+</p>
+
 Autonomous PRD development in VS Code. ShipIt reads your Product Requirements Document (PRD), breaks down tasks into manageable user stories, and autonomously implements them using GitHub Copilot.
 
 > [!IMPORTANT]
