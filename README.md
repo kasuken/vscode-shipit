@@ -6,6 +6,8 @@
 
 **ShipIt. Turn PRDs into shipped code.**
 
+<img width="787" height="1127" alt="ShipIt" src="https://github.com/user-attachments/assets/aad5b973-4f3b-4d15-8156-62e741050dd1" />
+
 Autonomous PRD development in VS Code. ShipIt reads your Product Requirements Document (PRD), breaks down tasks into manageable user stories, and autonomously implements them using GitHub Copilot.
 
 > [!IMPORTANT]
