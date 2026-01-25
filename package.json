@@ -2,8 +2,12 @@
   "name": "shipit",
   "displayName": "ShipIt - Turn PRDs into Shipped Code",
   "description": "Runs Copilot Agent Mode in a loop to implement tasks from your PRD",
-  "version": "0.0.1",
-  "publisher": "shipit-dev",
+  "version": "1.0.0",
+  "publisher": "emanuelebartolesi",
+  "icon": "img/logo.png",
+  "sponsor": {
+    "url": "https://github.com/sponsors/kasuken"
+  },
   "license": "MIT",
   "engines": {
     "vscode": "^1.93.0"
