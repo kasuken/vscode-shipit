@@ -1,6 +1,26 @@
 # Changelog
 
-All notable changes to the **ShipIt** VS Code extension will be documented in this file.
+## [2.0.0] - 2026-01-27
+
+### New Features
+- Added a **Settings** section in the sidebar panel to choose which model to use per operation:
+  - PRD generation
+  - User stories generation
+  - Task/user story implementation
+- Retrieves the available model list from the Copilot SDK (with a safe fallback list if unavailable)
+
+### Bug Fixes
+- Improved cancellation handling by supporting aborting the current Copilot SDK session
+- Hardened model discovery to gracefully handle SDKs that do not expose `getModels()`
+
+### Configuration Changes
+- Added model selection settings:
+	- `shipit.models.prdGeneration` (default: `gpt-5.2`)
+	- `shipit.models.userStoriesGeneration` (default: `gpt-5.2`)
+	- `shipit.models.taskImplementation` (default: `gpt-5-mini`)
+
+### Acknowledgments
+- Built on top of GitHub Copilot (Copilot CLI + `github.copilot-chat`) and the Copilot SDK
 
 ## [1.0.0] - 2026-01-25
 

@@ -11,6 +11,7 @@ import { getWorkspaceRoot, markUserStoryCompleteAsync, appendProgressAsync } fro
 import { buildAgentPromptAsync, buildPrdGenerationPrompt, buildUserStoriesGenerationPrompt, buildUserStoryImplementationPrompt } from './promptBuilder';
 import { getCopilotService, CopilotSdkService } from './copilotSdk';
 import { formatDuration } from './timerManager';
+import { getModelSettings } from './config';
 
 export type LogCallback = (message: string, highlight?: boolean) => void;
 export type TaskCompletionCallback = (type: 'user-story' | 'task', description: string) => void;
@@ -194,14 +195,15 @@ export class TaskRunner {
             return false;
         }
 
+        const modelSettings = getModelSettings();
         this.log('✨ Generating PRD.md from your description...');
 
         try {
             const prompt = buildPrdGenerationPrompt(taskDescription, root);
-            const success = await this.copilotService.executeTask(prompt, { model: 'gpt-5.2' });
+            const success = await this.copilotService.executeTask(prompt, { model: modelSettings.prdGeneration });
 
             if (success) {
-                this.log('PRD generation task sent to Copilot (using gpt-5.2)');
+                this.log(`PRD generation task sent to Copilot (using ${modelSettings.prdGeneration})`);
             } else {
                 this.log('Failed to execute PRD generation');
             }
@@ -224,12 +226,13 @@ export class TaskRunner {
         taskId: string,
         onComplete?: () => void | Promise<void>
     ): Promise<boolean> {
+        const modelSettings = getModelSettings();
         this.log('✨ Generating user stories for task...');
 
         try {
             const prompt = await buildUserStoriesGenerationPrompt(taskDescription, taskId, this.settings.userStoriesCountPerTask);
             const success = await this.copilotService.executeTask(prompt, { 
-                model: 'gpt-5.2',
+                model: modelSettings.userStoriesGeneration,
                 onComplete: async () => {
                     this.log('✅ User stories generation completed');
                     await appendProgressAsync(`Generated user stories for task: ${taskDescription.substring(0, 100)}`);
@@ -240,7 +243,7 @@ export class TaskRunner {
             });
 
             if (success) {
-                this.log('User stories generation task sent to Copilot (using gpt-5.2)');
+                this.log(`User stories generation task sent to Copilot (using ${modelSettings.userStoriesGeneration})`);
             } else {
                 this.log('Failed to execute user stories generation');
             }
@@ -264,6 +267,8 @@ export class TaskRunner {
         taskDescription: string,
         onComplete?: () => void | Promise<void>
     ): Promise<boolean> {
+        const modelSettings = getModelSettings();
+        
         try {
             const prompt = await buildUserStoryImplementationPrompt(
                 userStoryDescription,
@@ -273,7 +278,7 @@ export class TaskRunner {
 
             this.log('Sending user story implementation to Copilot...');
             const success = await this.copilotService.executeTask(prompt, { 
-                model: 'gpt-5-mini',
+                model: modelSettings.taskImplementation,
                 onComplete: async () => {
                     // Mark the user story as complete in userstories.md
                     const marked = await markUserStoryCompleteAsync(userStoryDescription);
@@ -293,7 +298,7 @@ export class TaskRunner {
             });
 
             if (success) {
-                this.log('User story implementation task sent to Copilot (using gpt-5-mini)');
+                this.log(`User story implementation task sent to Copilot (using ${modelSettings.taskImplementation})`);
             } else {
                 this.log('Failed to execute user story implementation');
             }

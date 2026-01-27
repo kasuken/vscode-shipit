@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
-import { IShipItUI, TaskCompletion, TaskStats, Task, UserStory } from './types';
+import { IShipItUI, TaskCompletion, TaskStats, Task, UserStory, ModelSettings } from './types';
 import { getTaskStatsAsync, getNextTaskAsync, getAllTasksAsync, getAllUserStoriesAsync, getUserStoryStatsAsync } from './fileUtils';
+import { getModelSettings, updateModelSetting } from './config';
+import { getCopilotService } from './copilotSdk';
 import { log } from './logger';
 
 /**
@@ -79,6 +81,16 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
                 case 'ready':
                     // Webview is ready, send initial state
                     await this.refresh();
+                    await this._sendSettings();
+                    break;
+                case 'getSettings':
+                    await this._sendSettings();
+                    break;
+                case 'updateModelSetting':
+                    if (data.key && data.value) {
+                        await updateModelSetting(data.key as keyof ModelSettings, data.value);
+                        await this._sendSettings();
+                    }
                     break;
             }
         });
@@ -99,6 +111,27 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
             await vscode.window.showTextDocument(doc);
         } catch {
             vscode.window.showWarningMessage('PRD.md not found. Generate one first.');
+        }
+    }
+
+    /**
+     * Send current settings and available models to webview
+     */
+    private async _sendSettings(): Promise<void> {
+        if (!this._view) { return; }
+
+        try {
+            const modelSettings = getModelSettings();
+            const copilotService = getCopilotService();
+            const availableModels = await copilotService.getAvailableModels();
+
+            this._view.webview.postMessage({
+                type: 'settings',
+                modelSettings,
+                availableModels
+            });
+        } catch (error) {
+            log(`Error sending settings: ${error}`);
         }
     }
 
@@ -511,6 +544,63 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
             font-weight: 600;
             color: var(--vscode-foreground);
         }
+        .settings-container {
+            background: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 4px;
+            padding: 10px;
+        }
+        .settings-row {
+            margin-bottom: 10px;
+        }
+        .settings-row:last-child {
+            margin-bottom: 0;
+        }
+        .settings-label {
+            display: block;
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+            margin-bottom: 4px;
+        }
+        .settings-select {
+            width: 100%;
+            padding: 6px 8px;
+            border-radius: 4px;
+            border: 1px solid var(--vscode-dropdown-border);
+            background: var(--vscode-dropdown-background);
+            color: var(--vscode-dropdown-foreground);
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .settings-select:focus {
+            outline: 1px solid var(--vscode-focusBorder);
+            border-color: var(--vscode-focusBorder);
+        }
+        .collapsible-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .collapsible-header:hover {
+            opacity: 0.8;
+        }
+        .chevron {
+            transition: transform 0.2s;
+            font-size: 10px;
+        }
+        .chevron.collapsed {
+            transform: rotate(-90deg);
+        }
+        .collapsible-content {
+            overflow: hidden;
+            transition: max-height 0.2s;
+        }
+        .collapsible-content.collapsed {
+            max-height: 0;
+            padding: 0;
+        }
     </style>
 </head>
 <body>
@@ -620,6 +710,35 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
         </div>
     </div>
 
+    <div class="section">
+        <div class="section-title collapsible-header" id="settingsHeader">
+            <span class="chevron" id="settingsChevron">▼</span>
+            Settings
+        </div>
+        <div class="collapsible-content" id="settingsContent">
+            <div class="settings-container" style="margin-top: 8px;">
+                <div class="settings-row">
+                    <label class="settings-label" for="modelPrd">PRD Generation Model</label>
+                    <select class="settings-select" id="modelPrd">
+                        <option value="">Loading...</option>
+                    </select>
+                </div>
+                <div class="settings-row">
+                    <label class="settings-label" for="modelStories">User Stories Model</label>
+                    <select class="settings-select" id="modelStories">
+                        <option value="">Loading...</option>
+                    </select>
+                </div>
+                <div class="settings-row">
+                    <label class="settings-label" for="modelTask">Task Implementation Model</label>
+                    <select class="settings-select" id="modelTask">
+                        <option value="">Loading...</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
 
@@ -641,6 +760,18 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
             userStories: [],
             logs: []
         };
+
+        // Settings state
+        let settingsState = {
+            modelSettings: {
+                prdGeneration: '',
+                userStoriesGeneration: '',
+                taskImplementation: ''
+            },
+            availableModels: []
+        };
+
+        let settingsCollapsed = false;
 
         // Elapsed time timer
         let elapsedTimer = null;
@@ -911,6 +1042,51 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
             return div.innerHTML;
         }
 
+        // Settings UI functions
+        function populateModelSelect(selectId, models, selectedValue) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            
+            select.innerHTML = '';
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model;
+                option.textContent = model;
+                if (model === selectedValue) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+        }
+
+        function updateSettingsUI() {
+            const models = settingsState.availableModels;
+            const settings = settingsState.modelSettings;
+            
+            populateModelSelect('modelPrd', models, settings.prdGeneration);
+            populateModelSelect('modelStories', models, settings.userStoriesGeneration);
+            populateModelSelect('modelTask', models, settings.taskImplementation);
+        }
+
+        function toggleSettings() {
+            const chevron = document.getElementById('settingsChevron');
+            const content = document.getElementById('settingsContent');
+            
+            settingsCollapsed = !settingsCollapsed;
+            
+            if (settingsCollapsed) {
+                chevron.classList.add('collapsed');
+                content.classList.add('collapsed');
+            } else {
+                chevron.classList.remove('collapsed');
+                content.classList.remove('collapsed');
+            }
+        }
+
+        function onModelChange(key, value) {
+            vscode.postMessage({ type: 'updateModelSetting', key, value });
+        }
+
         // Handle messages from extension
         window.addEventListener('message', event => {
             const message = event.data;
@@ -939,6 +1115,16 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
                 
                 updateUI();
             }
+
+            if (message.type === 'settings') {
+                if (message.modelSettings) {
+                    settingsState.modelSettings = message.modelSettings;
+                }
+                if (message.availableModels) {
+                    settingsState.availableModels = message.availableModels;
+                }
+                updateSettingsUI();
+            }
         });
 
         // Initial render and notify ready
@@ -965,6 +1151,19 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
         if (generateAllStoriesLink) {
             generateAllStoriesLink.addEventListener('click', () => send('generateAllUserStories'));
         }
+
+        // Settings controls
+        document.getElementById('settingsHeader').addEventListener('click', toggleSettings);
+        
+        document.getElementById('modelPrd').addEventListener('change', (e) => {
+            onModelChange('prdGeneration', e.target.value);
+        });
+        document.getElementById('modelStories').addEventListener('change', (e) => {
+            onModelChange('userStoriesGeneration', e.target.value);
+        });
+        document.getElementById('modelTask').addEventListener('change', (e) => {
+            onModelChange('taskImplementation', e.target.value);
+        });
         
         send('ready');
     </script>

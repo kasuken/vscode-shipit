@@ -2,7 +2,7 @@
   "name": "shipit",
   "displayName": "ShipIt",
   "description": "Runs Copilot Agent Mode in a loop to implement tasks from your PRD",
-  "version": "1.0.3",
+  "version": "2.0.0",
   "publisher": "emanuelebartolesi",
   "icon": "img/logo.png",
   "sponsor": {
@@ -123,6 +123,21 @@
           "default": "",
           "editPresentation": "multilineText",
           "description": "Custom PRD generation prompt template. Use {{task}} for user's request and {{workspace}} for workspace path."
+        },
+        "shipit.models.prdGeneration": {
+          "type": "string",
+          "default": "gpt-5.2",
+          "description": "Model to use for PRD generation"
+        },
+        "shipit.models.userStoriesGeneration": {
+          "type": "string",
+          "default": "gpt-5.2",
+          "description": "Model to use for user stories generation"
+        },
+        "shipit.models.taskImplementation": {
+          "type": "string",
+          "default": "gpt-5-mini",
+          "description": "Model to use for task/user story implementation"
         }
       }
     }

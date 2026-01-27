@@ -478,6 +478,37 @@ export class CopilotSdkService {
     }
 
     /**
+     * Get available models from the Copilot SDK
+     * Returns a list of model IDs that can be used
+     */
+    async getAvailableModels(): Promise<string[]> {
+        if (!this.client || !this.isStarted) {
+            const started = await this.start();
+            if (!started) {
+                // Return default models if client can't start
+                return getDefaultModels();
+            }
+        }
+
+        try {
+            // Try to get models from the SDK client
+            if (this.client && typeof this.client.getModels === 'function') {
+                const models = await this.client.getModels();
+                if (models && Array.isArray(models) && models.length > 0) {
+                    return models.map((m: any) => typeof m === 'string' ? m : m.id || m.name);
+                }
+            }
+            
+            // If SDK doesn't provide models, return defaults
+            logInfo('SDK getModels not available, using default models');
+            return getDefaultModels();
+        } catch (error) {
+            logError('Failed to get models from SDK', error);
+            return getDefaultModels();
+        }
+    }
+
+    /**
      * Abort the current operation
      */
     async abort(): Promise<void> {
@@ -490,6 +521,24 @@ export class CopilotSdkService {
             }
         }
     }
+}
+
+/**
+ * Get default available models
+ * These are common Copilot/OpenAI models that are typically available
+ */
+function getDefaultModels(): string[] {
+    return [
+        'gpt-4.1',
+        'gpt-4o',
+        'gpt-4o-mini',
+        'gpt-4.5-preview',
+        'gpt-5.2',
+        'gpt-5-mini',
+        'claude-sonnet-4',
+        'o3',
+        'o4-mini'
+    ];
 }
 
 // Singleton instance

@@ -91,11 +91,30 @@ export const DEFAULT_REQUIREMENTS: TaskRequirements = {
 };
 
 /**
+ * Model settings for different operations
+ */
+export interface ModelSettings {
+    prdGeneration: string;
+    userStoriesGeneration: string;
+    taskImplementation: string;
+}
+
+/**
+ * Default model settings
+ */
+export const DEFAULT_MODEL_SETTINGS: ModelSettings = {
+    prdGeneration: 'gpt-5.2',
+    userStoriesGeneration: 'gpt-5.2',
+    taskImplementation: 'gpt-5-mini'
+};
+
+/**
  * ShipIt settings
  */
 export interface ShipItSettings {
     maxIterations: number;
     userStoriesCountPerTask: number;
+    models: ModelSettings;
 }
 
 /**
@@ -103,7 +122,8 @@ export interface ShipItSettings {
  */
 export const DEFAULT_SETTINGS: ShipItSettings = {
     maxIterations: 50,
-    userStoriesCountPerTask: 3
+    userStoriesCountPerTask: 3,
+    models: { ...DEFAULT_MODEL_SETTINGS }
 };
 
 /**
