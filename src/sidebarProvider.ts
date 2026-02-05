@@ -1404,9 +1404,9 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
             select.innerHTML = '';
             models.forEach(model => {
                 const option = document.createElement('option');
-                option.value = model;
-                option.textContent = model;
-                if (model === selectedValue) {
+                option.value = model.id;
+                option.textContent = model.name;
+                if (model.id === selectedValue) {
                     option.selected = true;
                 }
                 select.appendChild(option);

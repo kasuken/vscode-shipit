@@ -164,6 +164,6 @@
     "github.copilot-chat"
   ],
   "dependencies": {
-    "@github/copilot-sdk": "^0.1.18"
+    "@github/copilot-sdk": "^0.1.21"
   }
 }

@@ -1,5 +1,26 @@
 # Changelog
 
+## [3.0.0] - 2026-02-05
+
+### New Features
+- Beautifully redesigned sidebar UI with modern card-based layout, improved controls, and collapsible sections for a more intuitive workflow.
+- Model selection dropdowns now display friendly model names (e.g., "GPT-4o", "Claude Sonnet 4") instead of raw IDs.
+- The extension now retrieves available models from the Copilot SDK using the most accurate method, filtering for enabled models and showing their names.
+- Manual PRD creation workflow: users can now write a PRD manually or generate one with AI, with both options available in the UI.
+- File-based project description workflow: PRD and related files are consistently created in the `.shipit/` folder.
+- Real-time progress bar, animated status indicators, and improved feedback during PRD and user story generation.
+- Enhanced user feedback: notifications and action buttons after PRD/user story generation.
+
+### Bug Fixes
+- Fixed model discovery to use the correct SDK method and filter out disabled models.
+- Resolved issues with PRD path configuration and ensured all prompts use the correct file locations.
+- Reduced log noise by making reasoning events silent and summarizing at completion.
+- Improved reliability of manual PRD creation and file handling.
+
+### Configuration Changes
+- Model selection settings now expect model IDs, but display names in the UI for clarity.
+- All file paths for PRD, user stories, and progress logs are now consistently configurable and default to the `.shipit/` folder.
+
 ## [2.0.0] - 2026-01-27
 
 ### New Features
