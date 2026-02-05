@@ -276,6 +276,17 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ShipIt</title>
     <style>
+        :root {
+            --card-bg: var(--vscode-editor-background);
+            --card-border: var(--vscode-panel-border);
+            --accent-green: var(--vscode-charts-green);
+            --accent-yellow: var(--vscode-charts-yellow);
+            --accent-orange: var(--vscode-charts-orange);
+            --accent-blue: var(--vscode-charts-blue);
+            --radius-sm: 4px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+        }
         * {
             box-sizing: border-box;
             margin: 0;
@@ -285,144 +296,296 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
             font-family: var(--vscode-font-family);
             font-size: var(--vscode-font-size);
             color: var(--vscode-foreground);
-            padding: 12px;
-            line-height: 1.4;
+            padding: 0;
+            line-height: 1.5;
+            background: transparent;
         }
+        
+        /* Header */
         .header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 16px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--vscode-panel-border);
+            padding: 16px 16px 12px;
+            background: linear-gradient(135deg, var(--vscode-sideBar-background) 0%, var(--card-bg) 100%);
+            border-bottom: 1px solid var(--card-border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
-        .header h2 {
-            font-size: 14px;
-            font-weight: 600;
+        .header-brand {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
+        }
+        .header-logo {
+            font-size: 20px;
+        }
+        .header-title {
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+        }
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .elapsed-badge {
+            font-size: 11px;
+            font-family: var(--vscode-editor-font-family);
+            color: var(--vscode-descriptionForeground);
+            background: var(--card-bg);
+            padding: 3px 8px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--card-border);
+        }
+        .elapsed-badge .time {
+            font-weight: 600;
+            color: var(--vscode-foreground);
         }
         .status-badge {
             display: inline-flex;
             align-items: center;
-            gap: 4px;
-            padding: 2px 8px;
-            border-radius: 10px;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 20px;
             font-size: 11px;
-            font-weight: 500;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .status-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
         }
         .status-idle {
             background: var(--vscode-badge-background);
             color: var(--vscode-badge-foreground);
         }
         .status-running {
-            background: var(--vscode-charts-green);
-            color: white;
+            background: rgba(40, 167, 69, 0.15);
+            color: var(--accent-green);
+            animation: pulse 2s infinite;
         }
         .status-waiting {
-            background: var(--vscode-charts-yellow);
-            color: black;
+            background: rgba(255, 193, 7, 0.15);
+            color: var(--accent-yellow);
         }
         .status-paused {
-            background: var(--vscode-charts-orange);
-            color: white;
+            background: rgba(253, 126, 20, 0.15);
+            color: var(--accent-orange);
         }
-        .section {
-            margin-bottom: 16px;
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
         }
-        .section-title {
+
+        /* Main content */
+        .main-content {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: rgba(128,128,128,0.03);
+            border-bottom: 1px solid var(--card-border);
+        }
+        .card-title {
             font-size: 11px;
-            font-weight: 600;
+            font-weight: 700;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
             color: var(--vscode-descriptionForeground);
-            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
-        .stats-grid {
+        .card-title-icon {
+            font-size: 12px;
+        }
+        .card-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .card-action {
+            font-size: 10px;
+            color: var(--vscode-textLink-foreground);
+            cursor: pointer;
+            text-decoration: none;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+        .card-action:hover {
+            opacity: 1;
+            text-decoration: underline;
+        }
+        .card-body {
+            padding: 12px;
+        }
+
+        /* Progress Stats */
+        .progress-stats {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 8px;
         }
-        .stat-box {
-            background: var(--vscode-editor-background);
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 4px;
-            padding: 8px;
+        .stat-item {
             text-align: center;
+            padding: 12px 8px;
+            background: rgba(128,128,128,0.05);
+            border-radius: var(--radius-sm);
         }
         .stat-value {
-            font-size: 18px;
-            font-weight: 600;
-            color: var(--vscode-foreground);
-        }
-        .stat-label {
-            font-size: 10px;
-            color: var(--vscode-descriptionForeground);
-            text-transform: uppercase;
-        }
-        .current-task {
-            background: var(--vscode-editor-background);
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 4px;
-            padding: 10px;
-        }
-        .current-task-label {
-            font-size: 10px;
-            color: var(--vscode-descriptionForeground);
-            text-transform: uppercase;
+            font-size: 24px;
+            font-weight: 700;
+            line-height: 1;
             margin-bottom: 4px;
         }
-        .current-task-text {
-            font-size: 12px;
-            word-break: break-word;
+        .stat-value.done { color: var(--accent-green); }
+        .stat-value.pending { color: var(--accent-yellow); }
+        .stat-value.iteration { color: var(--accent-blue); }
+        .stat-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--vscode-descriptionForeground);
+            font-weight: 600;
         }
-        .countdown {
-            text-align: center;
-            padding: 12px;
-            background: var(--vscode-inputValidation-infoBackground);
-            border: 1px solid var(--vscode-inputValidation-infoBorder);
-            border-radius: 4px;
+
+        /* Progress bar */
+        .progress-bar-container {
+            margin-top: 12px;
+            background: rgba(128,128,128,0.1);
+            border-radius: 10px;
+            height: 8px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-green) 0%, var(--accent-blue) 100%);
+            border-radius: 10px;
+            transition: width 0.5s ease;
+        }
+
+        /* Countdown */
+        .countdown-card {
+            background: linear-gradient(135deg, rgba(0,122,204,0.1) 0%, rgba(0,122,204,0.05) 100%);
+            border-color: var(--vscode-inputValidation-infoBorder);
             display: none;
         }
-        .countdown.visible {
+        .countdown-card.visible {
             display: block;
         }
-        .countdown-value {
-            font-size: 24px;
-            font-weight: bold;
-        }
-        .countdown-label {
-            font-size: 11px;
-            color: var(--vscode-descriptionForeground);
-        }
-        .buttons {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        .btn-row {
-            display: flex;
-            gap: 6px;
-        }
-        button {
-            flex: 1;
-            padding: 8px 12px;
-            border: none;
-            border-radius: 4px;
-            font-size: 12px;
-            cursor: pointer;
+        .countdown-content {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 4px;
-            transition: opacity 0.2s;
+            gap: 12px;
+            padding: 16px;
         }
-        button:hover {
-            opacity: 0.9;
+        .countdown-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--vscode-foreground);
+        }
+        .countdown-label {
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
+        }
+
+        /* Current Work */
+        .current-work {
+            background: linear-gradient(135deg, rgba(40,167,69,0.1) 0%, rgba(40,167,69,0.02) 100%);
+            border-color: var(--accent-green);
+        }
+        .current-work .card-body {
+            padding: 14px;
+        }
+        .work-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .work-item:last-child {
+            margin-bottom: 0;
+        }
+        .work-icon {
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        .work-content {
+            flex: 1;
+        }
+        .work-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--vscode-descriptionForeground);
+            margin-bottom: 2px;
+        }
+        .work-text {
+            font-size: 12px;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        /* Controls */
+        .controls-grid {
+            display: grid;
+            gap: 8px;
+        }
+        .controls-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+        .controls-row.single {
+            grid-template-columns: 1fr;
+        }
+        button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 10px 14px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:hover:not(:disabled) {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
+        button:active:not(:disabled) {
+            transform: translateY(0);
         }
         button:disabled {
-            opacity: 0.5;
+            opacity: 0.4;
             cursor: not-allowed;
+        }
+        .btn-icon {
+            font-size: 12px;
         }
         .btn-primary {
             background: var(--vscode-button-background);
@@ -432,162 +595,208 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
             background: var(--vscode-button-secondaryBackground);
             color: var(--vscode-button-secondaryForeground);
         }
+        .btn-success {
+            background: var(--accent-green);
+            color: white;
+        }
         .btn-danger {
             background: var(--vscode-errorForeground);
             color: white;
         }
+        .btn-large {
+            padding: 12px 16px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        /* Task list */
         .task-list {
-            max-height: 200px;
+            max-height: 250px;
             overflow-y: auto;
         }
         .task-item {
             display: flex;
             align-items: flex-start;
-            gap: 8px;
-            padding: 6px 0;
-            border-bottom: 1px solid var(--vscode-panel-border);
-            font-size: 12px;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(128,128,128,0.1);
         }
         .task-item:last-child {
             border-bottom: none;
+            padding-bottom: 0;
+        }
+        .task-item:first-child {
+            padding-top: 0;
         }
         .task-checkbox {
-            width: 14px;
-            height: 14px;
-            border: 1px solid var(--vscode-checkbox-border);
-            border-radius: 3px;
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--vscode-checkbox-border);
+            border-radius: 4px;
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-            margin-top: 2px;
+            font-size: 10px;
+            font-weight: bold;
+            transition: all 0.2s;
         }
         .task-checkbox.completed {
-            background: var(--vscode-charts-green);
-            border-color: var(--vscode-charts-green);
+            background: var(--accent-green);
+            border-color: var(--accent-green);
+            color: white;
         }
         .task-checkbox.blocked {
             background: var(--vscode-errorForeground);
             border-color: var(--vscode-errorForeground);
+            color: white;
         }
         .task-checkbox.in-progress {
-            background: var(--vscode-charts-yellow);
-            border-color: var(--vscode-charts-yellow);
+            background: var(--accent-yellow);
+            border-color: var(--accent-yellow);
+            color: black;
+            animation: pulse 2s infinite;
+        }
+        .task-content {
+            flex: 1;
+            min-width: 0;
         }
         .task-text {
-            flex: 1;
+            font-size: 12px;
+            line-height: 1.4;
             word-break: break-word;
         }
         .task-text.completed {
             text-decoration: line-through;
-            opacity: 0.7;
+            opacity: 0.6;
         }
-        .task-actions {
+        .task-meta {
             display: flex;
-            gap: 4px;
-            flex-shrink: 0;
+            gap: 6px;
+            margin-top: 4px;
+        }
+        .task-badge {
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            background: rgba(128,128,128,0.1);
+            color: var(--vscode-descriptionForeground);
+        }
+        .task-badge.has-stories {
+            background: rgba(40,167,69,0.15);
+            color: var(--accent-green);
         }
         .task-action-btn {
-            padding: 2px 6px;
-            font-size: 10px;
+            font-size: 9px;
+            padding: 3px 8px;
             border: none;
-            border-radius: 3px;
+            border-radius: 10px;
             cursor: pointer;
             background: var(--vscode-button-secondaryBackground);
             color: var(--vscode-button-secondaryForeground);
-            white-space: nowrap;
+            transition: all 0.2s;
         }
         .task-action-btn:hover {
-            opacity: 0.9;
+            filter: brightness(1.1);
         }
-        .task-action-btn.has-stories {
-            background: var(--vscode-charts-green);
-            color: white;
-            cursor: default;
+
+        /* User Stories Section */
+        .stories-group {
+            margin-bottom: 12px;
         }
+        .stories-group:last-child {
+            margin-bottom: 0;
+        }
+        .stories-group-header {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--vscode-descriptionForeground);
+            margin-bottom: 6px;
+            padding-bottom: 4px;
+            border-bottom: 1px dashed rgba(128,128,128,0.2);
+            display: flex;
+            justify-content: space-between;
+        }
+        .stories-progress {
+            color: var(--accent-green);
+        }
+
+        /* Logs */
         .logs-container {
-            max-height: 150px;
+            max-height: 120px;
             overflow-y: auto;
-            background: var(--vscode-editor-background);
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 4px;
-            padding: 8px;
             font-family: var(--vscode-editor-font-family);
-            font-size: 11px;
+            font-size: 10px;
+            line-height: 1.6;
         }
         .log-entry {
             padding: 2px 0;
+            color: var(--vscode-descriptionForeground);
             word-break: break-word;
         }
         .log-entry.highlight {
-            color: var(--vscode-charts-green);
-            font-weight: 500;
+            color: var(--accent-green);
+            font-weight: 600;
         }
+
+        /* Empty state */
         .empty-state {
             text-align: center;
-            padding: 20px;
+            padding: 24px 16px;
             color: var(--vscode-descriptionForeground);
         }
-        .empty-state-icon {
-            font-size: 32px;
-            margin-bottom: 8px;
+        .empty-icon {
+            font-size: 36px;
+            margin-bottom: 12px;
+            opacity: 0.5;
         }
-        .link {
-            color: var(--vscode-textLink-foreground);
-            cursor: pointer;
-            text-decoration: underline;
-        }
-        .hidden {
-            display: none !important;
-        }
-        .empty-state-links {
-            margin-top: 8px;
-        }
-        .empty-state-links .link {
-            display: inline;
-        }
-        .header-elapsed-inline {
-            font-size: 11px;
-            color: var(--vscode-descriptionForeground);
-            margin-right: auto;
-            padding-left: 8px;
-        }
-        .header-elapsed-time {
+        .empty-title {
+            font-size: 13px;
             font-weight: 600;
+            margin-bottom: 6px;
             color: var(--vscode-foreground);
         }
+        .empty-text {
+            font-size: 11px;
+            margin-bottom: 12px;
+        }
+        .empty-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        /* Settings */
         .settings-container {
-            background: var(--vscode-editor-background);
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 4px;
-            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
         .settings-row {
-            margin-bottom: 10px;
-        }
-        .settings-row:last-child {
-            margin-bottom: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
         }
         .settings-label {
-            display: block;
-            font-size: 11px;
+            font-size: 10px;
+            font-weight: 500;
             color: var(--vscode-descriptionForeground);
-            margin-bottom: 4px;
         }
         .settings-select {
-            width: 100%;
-            padding: 6px 8px;
-            border-radius: 4px;
+            padding: 6px 10px;
+            border-radius: var(--radius-sm);
             border: 1px solid var(--vscode-dropdown-border);
             background: var(--vscode-dropdown-background);
             color: var(--vscode-dropdown-foreground);
-            font-size: 12px;
+            font-size: 11px;
             cursor: pointer;
         }
         .settings-select:focus {
-            outline: 1px solid var(--vscode-focusBorder);
+            outline: none;
             border-color: var(--vscode-focusBorder);
         }
+
+        /* Collapsible */
         .collapsible-header {
             display: flex;
             align-items: center;
@@ -595,162 +804,259 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
             cursor: pointer;
             user-select: none;
         }
-        .collapsible-header:hover {
-            opacity: 0.8;
+        .collapsible-header:hover .card-title {
+            color: var(--vscode-foreground);
         }
         .chevron {
-            transition: transform 0.2s;
             font-size: 10px;
+            transition: transform 0.2s;
         }
         .chevron.collapsed {
             transform: rotate(-90deg);
         }
         .collapsible-content {
+            max-height: 500px;
             overflow: hidden;
-            transition: max-height 0.2s;
+            transition: max-height 0.3s ease;
         }
         .collapsible-content.collapsed {
             max-height: 0;
-            padding: 0;
+        }
+
+        /* Utilities */
+        .hidden { display: none !important; }
+        .link {
+            color: var(--vscode-textLink-foreground);
+            cursor: pointer;
+        }
+        .link:hover {
+            text-decoration: underline;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(128,128,128,0.3);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(128,128,128,0.5);
         }
     </style>
 </head>
 <body>
+    <!-- Header -->
     <div class="header">
-        <h2>📦 ShipIt</h2>
-        <span id="elapsedSection" class="header-elapsed-inline hidden">
-            ⏱️ <span id="elapsedTime" class="header-elapsed-time">00:00:00</span>
-        </span>
-        <span id="statusBadge" class="status-badge status-idle">Idle</span>
-    </div>
-
-    <div class="section">
-        <div class="section-title">Progress</div>
-        <div class="stats-grid">
-            <div class="stat-box">
-                <div class="stat-value" id="completedCount">0</div>
-                <div class="stat-label">Done</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-value" id="pendingCount">0</div>
-                <div class="stat-label">Pending</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-value" id="iterationCount">0</div>
-                <div class="stat-label">Iteration</div>
-            </div>
+        <div class="header-brand">
+            <span class="header-logo">🚀</span>
+            <span class="header-title">ShipIt</span>
+        </div>
+        <div class="header-right">
+            <span id="elapsedBadge" class="elapsed-badge hidden">
+                <span class="time" id="elapsedTime">00:00:00</span>
+            </span>
+            <span id="statusBadge" class="status-badge status-idle">Idle</span>
         </div>
     </div>
 
-    <div id="countdownSection" class="section countdown">
-        <div class="countdown-value" id="countdownValue">0</div>
-        <div class="countdown-label">Next task in seconds</div>
-    </div>
-
-    <div id="currentTaskSection" class="section hidden">
-        <div class="current-task">
-            <div class="current-task-label">Current Work</div>
-            <div class="current-task-text" style="display: flex; align-items: flex-start; gap: 6px;">
-                <span style="flex-shrink: 0;">📋</span>
-                <span id="currentTaskText"></span>
-            </div>
-            <div id="currentUserStoryContainer" class="hidden" style="margin-top: 12px; display: flex; align-items: flex-start; gap: 6px;">
-                <span style="flex-shrink: 0;">📖</span>
-                <span id="currentUserStoryText"></span>
-            </div>
-        </div>
-    </div>
-
-    <div class="section">
-        <div class="section-title">Controls</div>
-        <div class="buttons">
-            <div class="btn-row">
-                <button id="btnStart" class="btn-primary">
-                    ▶ Start
-                </button>
-                <button id="btnStop" class="btn-danger" disabled>
-                    ⏹ Stop
-                </button>
-            </div>
-            <div class="btn-row">
-                <button id="btnPause" class="btn-secondary" disabled>
-                    ⏸ Pause
-                </button>
-                <button id="btnResume" class="btn-secondary" disabled>
-                    ▶ Resume
-                </button>
-            </div>
-            <div class="btn-row">
-                <button id="btnNext" class="btn-secondary">
-                    ⏭ Single Step
-                </button>
-            </div>
-            <div class="btn-row">
-                <button id="btnGenerate" class="btn-secondary">
-                    🤖 Generate PRD
-                </button>
-                <button id="btnManualPrd" class="btn-secondary">
-                    ✏️ Write PRD
-                </button>
-            </div>
-    </div>
-
-    <div class="section">
-        <div class="section-title">
-            Tasks 
-            <span id="generateAllStoriesLink" class="link" style="float: right; font-weight: normal; margin-right: 8px;">[Gen All Stories]</span>
-            <span id="openPrdLink" class="link" style="float: right; font-weight: normal;">[Open PRD]</span>
-        </div>
-        <div id="taskList" class="task-list">
-            <div class="empty-state">
-                <div class="empty-state-icon">📋</div>
-                <div>No PRD found</div>
-                <div id="generatePrdLink" class="link">Generate one</div>
-            </div>
-        </div>
-    </div>
-
-    <div class="section" id="userStoriesSection">
-        <div class="section-title">User Stories</div>
-        <div id="userStoriesList" class="task-list">
-            <div class="empty-state" style="padding: 10px;">No user stories yet</div>
-        </div>
-    </div>
-
-    <div class="section">
-        <div class="section-title">
-            Activity Log
-            <span id="viewLogsLink" class="link" style="float: right; font-weight: normal;">[Full Logs]</span>
-        </div>
-        <div id="logsContainer" class="logs-container">
-            <div class="empty-state" style="padding: 10px;">No activity yet</div>
-        </div>
-    </div>
-
-    <div class="section">
-        <div class="section-title collapsible-header" id="settingsHeader">
-            <span class="chevron" id="settingsChevron">▼</span>
-            Settings
-        </div>
-        <div class="collapsible-content" id="settingsContent">
-            <div class="settings-container" style="margin-top: 8px;">
-                <div class="settings-row">
-                    <label class="settings-label" for="modelPrd">PRD Generation Model</label>
-                    <select class="settings-select" id="modelPrd">
-                        <option value="">Loading...</option>
-                    </select>
+    <div class="main-content">
+        <!-- Progress Stats -->
+        <div class="card">
+            <div class="card-body" style="padding: 10px 12px;">
+                <div class="progress-stats">
+                    <div class="stat-item">
+                        <div class="stat-value done" id="completedCount">0</div>
+                        <div class="stat-label">Done</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value pending" id="pendingCount">0</div>
+                        <div class="stat-label">Pending</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value iteration" id="iterationCount">0</div>
+                        <div class="stat-label">Iteration</div>
+                    </div>
                 </div>
-                <div class="settings-row">
-                    <label class="settings-label" for="modelStories">User Stories Model</label>
-                    <select class="settings-select" id="modelStories">
-                        <option value="">Loading...</option>
-                    </select>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar" style="width: 0%"></div>
                 </div>
-                <div class="settings-row">
-                    <label class="settings-label" for="modelTask">Task Implementation Model</label>
-                    <select class="settings-select" id="modelTask">
-                        <option value="">Loading...</option>
-                    </select>
+            </div>
+        </div>
+
+        <!-- Countdown -->
+        <div class="card countdown-card" id="countdownCard">
+            <div class="countdown-content">
+                <div class="countdown-value" id="countdownValue">0</div>
+                <div class="countdown-label">seconds until next task</div>
+            </div>
+        </div>
+
+        <!-- Current Work -->
+        <div class="card current-work hidden" id="currentWorkCard">
+            <div class="card-header">
+                <div class="card-title">
+                    <span class="card-title-icon">⚡</span>
+                    Currently Working
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="work-item">
+                    <span class="work-icon">📋</span>
+                    <div class="work-content">
+                        <div class="work-label">Task</div>
+                        <div class="work-text" id="currentTaskText"></div>
+                    </div>
+                </div>
+                <div class="work-item hidden" id="currentStoryItem">
+                    <span class="work-icon">📖</span>
+                    <div class="work-content">
+                        <div class="work-label">User Story</div>
+                        <div class="work-text" id="currentUserStoryText"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <span class="card-title-icon">🎮</span>
+                    Controls
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="controls-grid">
+                    <div class="controls-row">
+                        <button id="btnStart" class="btn-success btn-large">
+                            <span class="btn-icon">▶</span> Start
+                        </button>
+                        <button id="btnStop" class="btn-danger btn-large" disabled>
+                            <span class="btn-icon">⏹</span> Stop
+                        </button>
+                    </div>
+                    <div class="controls-row">
+                        <button id="btnPause" class="btn-secondary" disabled>
+                            <span class="btn-icon">⏸</span> Pause
+                        </button>
+                        <button id="btnResume" class="btn-secondary" disabled>
+                            <span class="btn-icon">▶</span> Resume
+                        </button>
+                    </div>
+                    <div class="controls-row single">
+                        <button id="btnNext" class="btn-secondary">
+                            <span class="btn-icon">⏭</span> Run Single Step
+                        </button>
+                    </div>
+                    <div class="controls-row">
+                        <button id="btnGenerate" class="btn-primary">
+                            <span class="btn-icon">🤖</span> AI Generate
+                        </button>
+                        <button id="btnManualPrd" class="btn-secondary">
+                            <span class="btn-icon">✏️</span> Write PRD
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tasks -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <span class="card-title-icon">📋</span>
+                    Tasks
+                </div>
+                <div class="card-actions">
+                    <span id="generateAllStoriesLink" class="card-action hidden">Gen All Stories</span>
+                    <span id="openPrdLink" class="card-action">Open PRD</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="taskList" class="task-list">
+                    <div class="empty-state">
+                        <div class="empty-icon">📋</div>
+                        <div class="empty-title">No PRD Found</div>
+                        <div class="empty-text">Create a Product Requirements Document to get started</div>
+                        <div class="empty-actions">
+                            <button id="emptyGenPrd" class="btn-primary">🤖 AI Generate</button>
+                            <button id="emptyWritePrd" class="btn-secondary">✏️ Write PRD</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Stories -->
+        <div class="card hidden" id="userStoriesCard">
+            <div class="card-header">
+                <div class="card-title">
+                    <span class="card-title-icon">📖</span>
+                    User Stories
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="userStoriesList" class="task-list"></div>
+            </div>
+        </div>
+
+        <!-- Activity Log -->
+        <div class="card">
+            <div class="card-header collapsible-header" id="logsHeader">
+                <div class="card-title">
+                    <span class="chevron" id="logsChevron">▼</span>
+                    <span class="card-title-icon">📝</span>
+                    Activity Log
+                </div>
+                <div class="card-actions">
+                    <span id="viewLogsLink" class="card-action">Full Logs</span>
+                </div>
+            </div>
+            <div class="collapsible-content" id="logsContent">
+                <div class="card-body" style="padding-top: 0;">
+                    <div id="logsContainer" class="logs-container">
+                        <div class="log-entry" style="opacity: 0.5;">No activity yet</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings -->
+        <div class="card">
+            <div class="card-header collapsible-header" id="settingsHeader">
+                <div class="card-title">
+                    <span class="chevron collapsed" id="settingsChevron">▼</span>
+                    <span class="card-title-icon">⚙️</span>
+                    Model Settings
+                </div>
+            </div>
+            <div class="collapsible-content collapsed" id="settingsContent">
+                <div class="card-body" style="padding-top: 0;">
+                    <div class="settings-container">
+                        <div class="settings-row">
+                            <label class="settings-label">PRD Generation</label>
+                            <select class="settings-select" id="modelPrd">
+                                <option value="">Loading...</option>
+                            </select>
+                        </div>
+                        <div class="settings-row">
+                            <label class="settings-label">User Stories</label>
+                            <select class="settings-select" id="modelStories">
+                                <option value="">Loading...</option>
+                            </select>
+                        </div>
+                        <div class="settings-row">
+                            <label class="settings-label">Task Implementation</label>
+                            <select class="settings-select" id="modelTask">
+                                <option value="">Loading...</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -788,7 +1094,9 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
             availableModels: []
         };
 
-        let settingsCollapsed = false;
+        // Collapsible states
+        let logsCollapsed = false;
+        let settingsCollapsed = true;
 
         // Elapsed time timer
         let elapsedTimer = null;
@@ -828,53 +1136,60 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
             badge.className = 'status-badge status-' + state.status;
             const statusText = {
                 'idle': 'Idle',
-                'running': 'Running #' + state.iteration,
+                'running': 'Running',
                 'waiting': 'Waiting',
                 'paused': 'Paused'
             };
             badge.textContent = statusText[state.status] || state.status;
 
             // Stats
-            document.getElementById('completedCount').textContent = state.stats.completed || 0;
-            document.getElementById('pendingCount').textContent = state.stats.pending || 0;
+            const completed = state.stats.completed || 0;
+            const total = state.stats.total || 0;
+            const pending = state.stats.pending || 0;
+            
+            document.getElementById('completedCount').textContent = completed;
+            document.getElementById('pendingCount').textContent = pending;
             document.getElementById('iterationCount').textContent = state.iteration;
 
+            // Progress bar
+            const progressPercent = total > 0 ? (completed / total) * 100 : 0;
+            document.getElementById('progressBar').style.width = progressPercent + '%';
+
             // Elapsed time
-            const elapsedSection = document.getElementById('elapsedSection');
+            const elapsedBadge = document.getElementById('elapsedBadge');
             const isActive = state.status === 'running' || state.status === 'waiting' || state.status === 'paused';
             if (isActive && state.sessionStartTime > 0) {
-                elapsedSection.classList.remove('hidden');
+                elapsedBadge.classList.remove('hidden');
                 startElapsedTimer();
             } else {
-                elapsedSection.classList.add('hidden');
+                elapsedBadge.classList.add('hidden');
                 stopElapsedTimer();
             }
 
             // Countdown
-            const countdownSection = document.getElementById('countdownSection');
+            const countdownCard = document.getElementById('countdownCard');
             if (state.countdown > 0) {
-                countdownSection.classList.add('visible');
+                countdownCard.classList.add('visible');
                 document.getElementById('countdownValue').textContent = state.countdown;
             } else {
-                countdownSection.classList.remove('visible');
+                countdownCard.classList.remove('visible');
             }
 
-            // Current task
-            const currentTaskSection = document.getElementById('currentTaskSection');
-            const userStoryContainer = document.getElementById('currentUserStoryContainer');
+            // Current work
+            const currentWorkCard = document.getElementById('currentWorkCard');
+            const currentStoryItem = document.getElementById('currentStoryItem');
             if (state.currentTask && (state.status === 'running' || state.status === 'waiting')) {
-                currentTaskSection.classList.remove('hidden');
+                currentWorkCard.classList.remove('hidden');
                 document.getElementById('currentTaskText').textContent = state.currentTask;
                 
-                // Current user story
                 if (state.activeUserStory) {
-                    userStoryContainer.classList.remove('hidden');
+                    currentStoryItem.classList.remove('hidden');
                     document.getElementById('currentUserStoryText').textContent = state.activeUserStory;
                 } else {
-                    userStoryContainer.classList.add('hidden');
+                    currentStoryItem.classList.add('hidden');
                 }
             } else {
-                currentTaskSection.classList.add('hidden');
+                currentWorkCard.classList.add('hidden');
             }
 
             // Buttons
@@ -902,24 +1217,30 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
             const genAllLink = document.getElementById('generateAllStoriesLink');
             
             if (!state.tasks || state.tasks.length === 0) {
-                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><div>No PRD found</div><div class="empty-state-links"><span id="generatePrdLinkEmpty" class="link">Generate PRD</span> or <span id="writePrdLinkEmpty" class="link">Write manually</span></div></div>';
-                if (genAllLink) { genAllLink.style.display = 'none'; }
-                // Re-attach event listeners for dynamically created links
-                const genLink = document.getElementById('generatePrdLinkEmpty');
-                if (genLink) {
-                    genLink.addEventListener('click', () => send('generatePrd'));
-                }
-                const writeLink = document.getElementById('writePrdLinkEmpty');
-                if (writeLink) {
-                    writeLink.addEventListener('click', () => send('createManualPrd'));
-                }
+                container.innerHTML = \`
+                    <div class="empty-state">
+                        <div class="empty-icon">📋</div>
+                        <div class="empty-title">No PRD Found</div>
+                        <div class="empty-text">Create a Product Requirements Document to get started</div>
+                        <div class="empty-actions">
+                            <button id="emptyGenPrd" class="btn-primary">🤖 AI Generate</button>
+                            <button id="emptyWritePrd" class="btn-secondary">✏️ Write PRD</button>
+                        </div>
+                    </div>
+                \`;
+                genAllLink.classList.add('hidden');
+                
+                document.getElementById('emptyGenPrd')?.addEventListener('click', () => send('generatePrd'));
+                document.getElementById('emptyWritePrd')?.addEventListener('click', () => send('createManualPrd'));
                 return;
             }
 
-            // Show/hide generate all stories link based on whether any tasks need stories
+            // Show/hide generate all stories link
             const tasksNeedingStories = state.tasks.filter(t => !t.hasUserStories && t.status !== 'COMPLETE');
-            if (genAllLink) {
-                genAllLink.style.display = tasksNeedingStories.length > 0 ? 'inline' : 'none';
+            if (tasksNeedingStories.length > 0) {
+                genAllLink.classList.remove('hidden');
+            } else {
+                genAllLink.classList.add('hidden');
             }
 
             const isActive = state.status === 'running' || state.status === 'waiting';
@@ -929,15 +1250,12 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
                 let textClass = 'task-text';
                 let icon = '';
                 
-                // Check if this task is the current one being worked on
-                // Use activeTaskDescription which always contains the parent task
                 const isCurrentTask = isActive && state.activeTaskDescription && 
                     task.description === state.activeTaskDescription;
                 
                 if (isCurrentTask && task.status !== 'COMPLETE') {
-                    // Override to show as in-progress
                     checkboxClass += ' in-progress';
-                    icon = '~';
+                    icon = '⚡';
                 } else {
                     switch (task.status) {
                         case 'COMPLETE':
@@ -951,30 +1269,36 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
                             break;
                         case 'IN_PROGRESS':
                             checkboxClass += ' in-progress';
-                            icon = '~';
+                            icon = '⚡';
                             break;
                         default:
                             icon = '';
                     }
                 }
 
-                // Generate story button - show for pending tasks without stories
-                let actionBtn = '';
+                let metaHtml = '';
                 if (task.status !== 'COMPLETE') {
                     if (task.hasUserStories) {
-                        actionBtn = '<span class="task-action-btn has-stories" title="User stories exist">✓ Stories</span>';
+                        metaHtml = '<span class="task-badge has-stories">✓ Stories</span>';
                     } else {
-                        actionBtn = '<button class="task-action-btn" data-task-index="' + index + '" title="Generate user stories for this task">+ Stories</button>';
+                        metaHtml = '<button class="task-action-btn" data-task-index="' + index + '">+ Stories</button>';
                     }
                 }
 
-                return '<div class="task-item"><div class="' + checkboxClass + '">' + icon + '</div><div class="' + textClass + '">' + escapeHtml(task.description) + '</div><div class="task-actions">' + actionBtn + '</div></div>';
+                return \`
+                    <div class="task-item">
+                        <div class="\${checkboxClass}">\${icon}</div>
+                        <div class="task-content">
+                            <div class="\${textClass}">\${escapeHtml(task.description)}</div>
+                            <div class="task-meta">\${metaHtml}</div>
+                        </div>
+                    </div>
+                \`;
             }).join('');
 
             container.innerHTML = html;
 
-            // Attach event listeners to story generation buttons
-            container.querySelectorAll('.task-action-btn:not(.has-stories)').forEach(btn => {
+            container.querySelectorAll('.task-action-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const index = parseInt(e.target.getAttribute('data-task-index'), 10);
                     const task = state.tasks[index];
@@ -987,16 +1311,15 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
 
         function renderUserStories() {
             const container = document.getElementById('userStoriesList');
-            const section = document.getElementById('userStoriesSection');
+            const card = document.getElementById('userStoriesCard');
             
             if (!state.userStories || state.userStories.length === 0) {
-                section.style.display = 'none';
+                card.classList.add('hidden');
                 return;
             }
             
-            section.style.display = 'block';
+            card.classList.remove('hidden');
 
-            // Group user stories by task
             const storiesByTask = {};
             state.userStories.forEach(story => {
                 if (!storiesByTask[story.taskId]) {
@@ -1009,8 +1332,12 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
             for (const taskId in storiesByTask) {
                 const stories = storiesByTask[taskId];
                 const completed = stories.filter(s => s.status === 'COMPLETE').length;
-                html += '<div class="task-group">';
-                html += '<div class="task-group-header" style="font-size: 10px; color: var(--vscode-descriptionForeground); margin: 8px 0 4px 0;">' + escapeHtml(taskId) + ' (' + completed + '/' + stories.length + ')</div>';
+                
+                html += \`<div class="stories-group">\`;
+                html += \`<div class="stories-group-header">
+                    <span>\${escapeHtml(taskId.substring(0, 50))}...</span>
+                    <span class="stories-progress">\${completed}/\${stories.length}</span>
+                </div>\`;
                 
                 stories.forEach(story => {
                     let checkboxClass = 'task-checkbox';
@@ -1025,13 +1352,20 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
                             break;
                         case 'IN_PROGRESS':
                             checkboxClass += ' in-progress';
-                            icon = '~';
+                            icon = '⚡';
                             break;
                         default:
                             icon = '';
                     }
 
-                    html += '<div class="task-item"><div class="' + checkboxClass + '">' + icon + '</div><div class="' + textClass + '">' + escapeHtml(story.description) + '</div></div>';
+                    html += \`
+                        <div class="task-item">
+                            <div class="\${checkboxClass}">\${icon}</div>
+                            <div class="task-content">
+                                <div class="\${textClass}">\${escapeHtml(story.description)}</div>
+                            </div>
+                        </div>
+                    \`;
                 });
                 
                 html += '</div>';
@@ -1044,11 +1378,11 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
             const container = document.getElementById('logsContainer');
             
             if (!state.logs || state.logs.length === 0) {
-                container.innerHTML = '<div class="empty-state" style="padding: 10px;">No activity yet</div>';
+                container.innerHTML = '<div class="log-entry" style="opacity: 0.5;">No activity yet</div>';
                 return;
             }
 
-            const html = state.logs.slice(-20).map(log => {
+            const html = state.logs.slice(-25).map(log => {
                 const isHighlight = log.startsWith('⭐');
                 return '<div class="log-entry' + (isHighlight ? ' highlight' : '') + '">' + escapeHtml(log) + '</div>';
             }).join('');
@@ -1063,7 +1397,6 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
             return div.innerHTML;
         }
 
-        // Settings UI functions
         function populateModelSelect(selectId, models, selectedValue) {
             const select = document.getElementById(selectId);
             if (!select) return;
@@ -1089,18 +1422,28 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
             populateModelSelect('modelTask', models, settings.taskImplementation);
         }
 
-        function toggleSettings() {
-            const chevron = document.getElementById('settingsChevron');
-            const content = document.getElementById('settingsContent');
+        function toggleCollapsible(chevronId, contentId, isCollapsedVar) {
+            const chevron = document.getElementById(chevronId);
+            const content = document.getElementById(contentId);
             
-            settingsCollapsed = !settingsCollapsed;
-            
-            if (settingsCollapsed) {
-                chevron.classList.add('collapsed');
-                content.classList.add('collapsed');
-            } else {
-                chevron.classList.remove('collapsed');
-                content.classList.remove('collapsed');
+            if (chevronId === 'settingsChevron') {
+                settingsCollapsed = !settingsCollapsed;
+                if (settingsCollapsed) {
+                    chevron.classList.add('collapsed');
+                    content.classList.add('collapsed');
+                } else {
+                    chevron.classList.remove('collapsed');
+                    content.classList.remove('collapsed');
+                }
+            } else if (chevronId === 'logsChevron') {
+                logsCollapsed = !logsCollapsed;
+                if (logsCollapsed) {
+                    chevron.classList.add('collapsed');
+                    content.classList.add('collapsed');
+                } else {
+                    chevron.classList.remove('collapsed');
+                    content.classList.remove('collapsed');
+                }
             }
         }
 
@@ -1151,7 +1494,7 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
         // Initial render and notify ready
         updateUI();
         
-        // Add event listeners for buttons
+        // Event listeners
         document.getElementById('btnStart').addEventListener('click', () => send('start'));
         document.getElementById('btnStop').addEventListener('click', () => send('stop'));
         document.getElementById('btnPause').addEventListener('click', () => send('pause'));
@@ -1161,31 +1504,14 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
         document.getElementById('btnManualPrd').addEventListener('click', () => send('createManualPrd'));
         document.getElementById('openPrdLink').addEventListener('click', () => send('openPrd'));
         document.getElementById('viewLogsLink').addEventListener('click', () => send('viewLogs'));
-        
-        // For the generate link in task list (if it exists on initial load)
-        const generateLink = document.getElementById('generatePrdLink');
-        if (generateLink) {
-            generateLink.addEventListener('click', () => send('generatePrd'));
-        }
+        document.getElementById('generateAllStoriesLink').addEventListener('click', () => send('generateAllUserStories'));
 
-        // For the generate all stories link
-        const generateAllStoriesLink = document.getElementById('generateAllStoriesLink');
-        if (generateAllStoriesLink) {
-            generateAllStoriesLink.addEventListener('click', () => send('generateAllUserStories'));
-        }
-
-        // Settings controls
-        document.getElementById('settingsHeader').addEventListener('click', toggleSettings);
+        document.getElementById('settingsHeader').addEventListener('click', () => toggleCollapsible('settingsChevron', 'settingsContent'));
+        document.getElementById('logsHeader').addEventListener('click', () => toggleCollapsible('logsChevron', 'logsContent'));
         
-        document.getElementById('modelPrd').addEventListener('change', (e) => {
-            onModelChange('prdGeneration', e.target.value);
-        });
-        document.getElementById('modelStories').addEventListener('change', (e) => {
-            onModelChange('userStoriesGeneration', e.target.value);
-        });
-        document.getElementById('modelTask').addEventListener('change', (e) => {
-            onModelChange('taskImplementation', e.target.value);
-        });
+        document.getElementById('modelPrd').addEventListener('change', (e) => onModelChange('prdGeneration', e.target.value));
+        document.getElementById('modelStories').addEventListener('change', (e) => onModelChange('userStoriesGeneration', e.target.value));
+        document.getElementById('modelTask').addEventListener('change', (e) => onModelChange('taskImplementation', e.target.value));
         
         send('ready');
     </script>
