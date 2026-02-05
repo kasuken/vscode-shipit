@@ -3,7 +3,7 @@ import { ShipItStatusBar } from './statusBar';
 import { LoopOrchestrator } from './orchestrator';
 import { ShipItSidebarProvider } from './sidebarProvider';
 import { log, disposeLogger, showLogs } from './logger';
-import { getTaskStatsAsync, getNextTaskAsync } from './fileUtils';
+import { getTaskStatsAsync, getNextTaskAsync, createManualPrdAsync, readProjectDescriptionAsync, createOrOpenProjectDescriptionAsync } from './fileUtils';
 
 /**
  * Main ShipIt extension class
@@ -75,12 +75,22 @@ class ShipItExtension {
             }),
 
             vscode.commands.registerCommand('shipit.generatePrd', async () => {
-                const description = await vscode.window.showInputBox({
-                    prompt: 'Describe what you want to build',
-                    placeHolder: 'e.g., A REST API for managing todo items with user authentication'
-                });
-                if (description) {
-                    this.orchestrator.generatePrdFromDescription(description);
+                // Check if project description file exists and has content
+                const existingDescription = await readProjectDescriptionAsync();
+                
+                if (existingDescription) {
+                    // File exists with content - generate PRD from it
+                    vscode.window.showInformationMessage('Starting PRD generation from your project description...');
+                    this.orchestrator.generatePrdFromDescription(existingDescription);
+                } else {
+                    // File doesn't exist or is empty - create/open it for editing
+                    const created = await createOrOpenProjectDescriptionAsync();
+                    if (created) {
+                        vscode.window.showInformationMessage(
+                            'Write your project description in the file, save it, and click "Generate PRD" again.',
+                            'Got it'
+                        );
+                    }
                 }
             }),
 
@@ -98,6 +108,13 @@ class ShipItExtension {
 
             vscode.commands.registerCommand('shipit.viewLogs', () => {
                 showLogs();
+            }),
+
+            vscode.commands.registerCommand('shipit.createManualPrd', async () => {
+                const result = await createManualPrdAsync();
+                if (result) {
+                    await this.sidebarProvider.refresh();
+                }
             })
         );
     }

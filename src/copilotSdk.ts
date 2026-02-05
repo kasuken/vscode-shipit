@@ -232,6 +232,7 @@ export class CopilotSdkService {
 
             let fullResponse = '';
             let deltaBuffer = '';
+            let reasoningDeltaCount = 0;
 
             // Set up event handler for streaming
              
@@ -256,6 +257,10 @@ export class CopilotSdkService {
                     case 'session.idle':
                         this.progressHandler?.('', true);
                         logInfo('Session idle - task complete');
+                        // Log reasoning delta count if any occurred
+                        if (reasoningDeltaCount > 0) {
+                            logInfo(`Processed ${reasoningDeltaCount} reasoning steps`);
+                        }
                         break;
                     
                     case 'tool.execution_start':
@@ -278,10 +283,15 @@ export class CopilotSdkService {
                     case 'session.error':
                         logError('Session error', event.data);
                         break;
+                    
+                    case 'assistant.reasoning_delta':
+                        // Count reasoning deltas but don't log each one (too noisy)
+                        reasoningDeltaCount++;
+                        break;
                         
                     default:
-                        // Log other event types for debugging
-                        if (event.type) {
+                        // Log other significant event types (but filter out very noisy ones)
+                        if (event.type && !event.type.includes('delta') && !event.type.includes('progress')) {
                             logInfo(`Event: ${event.type}`);
                         }
                 }

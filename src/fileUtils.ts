@@ -273,6 +273,203 @@ export function getPrdPath(): string | null {
     return path.join(root, config.files.prdPath);
 }
 
+/**
+ * Sample PRD content for manual creation
+ */
+const SAMPLE_PRD_CONTENT = `# Product Requirements Document
+
+## Project Overview
+<!-- Describe your project here -->
+A brief description of what you're building and why.
+
+## Goals
+- Define the main goals of your project
+- What problems does it solve?
+
+## Features
+
+### Core Features
+<!-- List your main tasks as checkboxes. ShipIt will pick these up! -->
+
+- [ ] Create the project structure and initial setup
+- [ ] Implement feature one with basic functionality
+- [ ] Add unit tests for core components
+- [ ] Implement feature two
+- [ ] Add documentation
+
+### Nice to Have
+- [ ] Additional feature ideas for later
+
+## Technical Notes
+<!-- Add any technical considerations, constraints, or notes -->
+- Technology stack: 
+- Key dependencies:
+- API integrations:
+
+## Success Criteria
+- Define what "done" looks like for this project
+`;
+
+/**
+ * Sample project description template
+ */
+const SAMPLE_PROJECT_DESCRIPTION = `# Project Description
+
+Write a detailed description of what you want to build.
+When you save this file and click "Generate PRD" again, ShipIt will use this description to create your PRD.
+
+## Instructions
+1. Replace this template with your project description
+2. Include features, requirements, and technical details
+3. Be as specific as possible
+4. Save the file (Ctrl+S / Cmd+S)
+5. Click "Generate PRD" button again
+
+## Example
+A REST API for managing todo items with user authentication, using Node.js and PostgreSQL.
+Features: 
+- User registration and login with JWT tokens
+- CRUD operations for todos (create, read, update, delete)
+- Task categorization with tags
+- Due date reminders via email
+- RESTful endpoints following best practices
+- Comprehensive unit and integration tests
+
+════════════════════════════════════════════════════════════════════════════════
+
+## Your Project Description
+
+`;
+
+/**
+ * Create a manual PRD file with sample content
+ * @returns true if the file was created and opened successfully
+ */
+export async function createManualPrdAsync(): Promise<boolean> {
+    const prdPath = getPrdPath();
+    if (!prdPath) {
+        vscode.window.showErrorMessage('No workspace folder open');
+        return false;
+    }
+
+    // Check if PRD already exists
+    try {
+        await fsPromises.access(prdPath);
+        // File exists, ask user if they want to open it
+        const action = await vscode.window.showWarningMessage(
+            'A PRD file already exists. Do you want to open it?',
+            'Open',
+            'Cancel'
+        );
+        if (action === 'Open') {
+            const doc = await vscode.workspace.openTextDocument(prdPath);
+            await vscode.window.showTextDocument(doc);
+            return true;
+        }
+        return false;
+    } catch {
+        // File doesn't exist, create it
+    }
+
+    await ensureDirectoryExists(prdPath);
+    
+    try {
+        await fsPromises.writeFile(prdPath, SAMPLE_PRD_CONTENT, 'utf-8');
+        
+        // Open the file in the editor
+        const doc = await vscode.workspace.openTextDocument(prdPath);
+        await vscode.window.showTextDocument(doc);
+        
+        vscode.window.showInformationMessage('PRD.md created! Edit the tasks and start ShipIt when ready.');
+        return true;
+    } catch (error) {
+        logError('Failed to create PRD.md', error);
+        vscode.window.showErrorMessage('Failed to create PRD.md');
+        return false;
+    }
+}
+
+// ============================================================================
+// Project Description File Management
+// ============================================================================
+
+const PROJECT_DESCRIPTION_FILENAME = '.shipit/project_description.md';
+
+/**
+ * Get the project description file path
+ */
+export function getProjectDescriptionPath(): string | null {
+    const root = getWorkspaceRoot();
+    if (!root) { return null; }
+    return path.join(root, PROJECT_DESCRIPTION_FILENAME);
+}
+
+/**
+ * Read the project description file
+ */
+export async function readProjectDescriptionAsync(): Promise<string | null> {
+    const descPath = getProjectDescriptionPath();
+    if (!descPath) { return null; }
+
+    try {
+        await fsPromises.access(descPath);
+        const content = await fsPromises.readFile(descPath, 'utf-8');
+        
+        // Extract actual description (remove template if still present)
+        const separator = '═';
+        if (content.includes(separator)) {
+            const parts = content.split(new RegExp(`${separator}+`));
+            const extracted = parts.length > 1 ? parts[parts.length - 1].trim() : content;
+            
+            // Check if user actually wrote something meaningful
+            const headerPattern = /^##\s*Your Project Description/im;
+            const cleanedContent = extracted.replace(headerPattern, '').trim();
+            
+            return cleanedContent.length > 20 ? cleanedContent : null;
+        }
+        
+        return content.trim().length > 20 ? content.trim() : null;
+    } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+            logError('Failed to read project_description.md', error);
+        }
+        return null;
+    }
+}
+
+/**
+ * Create or open the project description file
+ */
+export async function createOrOpenProjectDescriptionAsync(): Promise<boolean> {
+    const descPath = getProjectDescriptionPath();
+    if (!descPath) {
+        vscode.window.showErrorMessage('No workspace folder open');
+        return false;
+    }
+
+    await ensureDirectoryExists(descPath);
+    
+    try {
+        // Check if file exists
+        try {
+            await fsPromises.access(descPath);
+        } catch {
+            // File doesn't exist, create it with template
+            await fsPromises.writeFile(descPath, SAMPLE_PROJECT_DESCRIPTION, 'utf-8');
+        }
+        
+        // Open the file
+        const doc = await vscode.workspace.openTextDocument(descPath);
+        await vscode.window.showTextDocument(doc);
+        
+        return true;
+    } catch (error) {
+        logError('Failed to create/open project_description.md', error);
+        vscode.window.showErrorMessage('Failed to open project description file');
+        return false;
+    }
+}
+
 // ============================================================================
 // User Stories File Management
 // ============================================================================

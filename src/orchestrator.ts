@@ -19,7 +19,8 @@ import {
     areAllUserStoriesCompleteAsync,
     getUserStoryStatsAsync,
     readUserStoriesAsync,
-    getAllTasksAsync
+    getAllTasksAsync,
+    getPrdPath
 } from './fileUtils';
 import { ShipItStatusBar } from './statusBar';
 import { CountdownTimer, InactivityMonitor } from './timerManager';
@@ -222,8 +223,18 @@ export class LoopOrchestrator {
         }
 
         this.ui.showPrdGenerating();
-        this.setupPrdCreationWatcher();
-        await this.taskRunner.triggerPrdGeneration(taskDescription);
+        
+        // Show progress notification
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: "ShipIt",
+            cancellable: false
+        }, async (progress) => {
+            progress.report({ message: "Generating PRD from your description..." });
+            this.setupPrdCreationWatcher();
+            await this.taskRunner.triggerPrdGeneration(taskDescription);
+            progress.report({ message: "PRD generation in progress. Watch the sidebar for updates." });
+        });
     }
 
     /**
@@ -249,7 +260,21 @@ export class LoopOrchestrator {
         const taskId = task?.id || `task-${Date.now()}`;
 
         this.ui.addLog(`📋 Generating user stories for: ${taskDescription}`);
-        await this.taskRunner.triggerUserStoriesGeneration(taskDescription, taskId);
+        
+        // Show progress notification
+        vscode.window.showInformationMessage(
+            `Generating user stories for: ${taskDescription.substring(0, 50)}...`
+        );
+        
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: "ShipIt",
+            cancellable: false
+        }, async (progress) => {
+            progress.report({ message: "Generating user stories..." });
+            await this.taskRunner.triggerUserStoriesGeneration(taskDescription, taskId);
+            progress.report({ message: "User stories generation in progress." });
+        });
         
         // Set up watcher and refresh UI when done
         this.setupUserStoriesCreationWatcher(taskDescription);
@@ -293,7 +318,21 @@ export class LoopOrchestrator {
         this.ui.addLog(`📋 Generating user stories for ${tasksNeedingStories.length} task(s)...`);
         this.ui.addLog(`Starting with: ${firstTask.description}`);
         
-        await this.taskRunner.triggerUserStoriesGeneration(firstTask.description, firstTask.id);
+        // Show progress notification
+        vscode.window.showInformationMessage(
+            `Generating user stories for ${tasksNeedingStories.length} task(s). Starting with: ${firstTask.description.substring(0, 40)}...`
+        );
+        
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: "ShipIt",
+            cancellable: false
+        }, async (progress) => {
+            progress.report({ message: `Generating user stories (1/${tasksNeedingStories.length})...` });
+            await this.taskRunner.triggerUserStoriesGeneration(firstTask.description, firstTask.id);
+            progress.report({ message: "User stories generation in progress." });
+        });
+        
         this.setupUserStoriesCreationWatcher(firstTask.description);
     }
 
@@ -311,7 +350,24 @@ export class LoopOrchestrator {
                 this.ui.addLog(`✅ User stories created for: ${taskDescription}`, true);
                 this.fileWatchers.activityWatcher.dispose();
                 await this.ui.refresh();
-                vscode.window.showInformationMessage(`User stories created for task: ${taskDescription}`);
+                
+                // Get count of stories created
+                const stats = await getUserStoryStatsAsync(taskDescription);
+                vscode.window.showInformationMessage(
+                    `✅ ${stats.total} user stor${stats.total === 1 ? 'y' : 'ies'} created for task. Ready to implement!`,
+                    'View Stories'
+                ).then(async action => {
+                    if (action === 'View Stories') {
+                        // Open the user stories file
+                        try {
+                            const userStoriesPath = vscode.Uri.file(root + '/.shipit/userstories.md');
+                            const doc = await vscode.workspace.openTextDocument(userStoriesPath);
+                            await vscode.window.showTextDocument(doc);
+                        } catch (error) {
+                            vscode.window.showErrorMessage('Could not open user stories file');
+                        }
+                    }
+                });
             }
         });
         this.ui.addLog('👁️ Watching for user stories creation...');
@@ -374,12 +430,29 @@ export class LoopOrchestrator {
      */
     private setupPrdCreationWatcher(): void {
         this.fileWatchers.prdCreationWatcher.start(async () => {
-            this.ui.addLog('PRD.md created successfully!', true);
+            this.ui.addLog('PRD created successfully!', true);
             await this.ui.refresh();
             this.fileWatchers.prdCreationWatcher.dispose();
-            vscode.window.showInformationMessage('ShipIt: PRD.md created! Click Start to begin.');
+            
+            // Show success notification with next steps
+            const stats = await getTaskStatsAsync();
+            vscode.window.showInformationMessage(
+                `✅ PRD created with ${stats.total} task(s)! Click "Start" to begin implementation.`,
+                'Start ShipIt',
+                'View PRD'
+            ).then(async action => {
+                if (action === 'Start ShipIt') {
+                    vscode.commands.executeCommand('shipit.start');
+                } else if (action === 'View PRD') {
+                    const prdPath = getPrdPath();
+                    if (prdPath) {
+                        const doc = await vscode.workspace.openTextDocument(prdPath);
+                        await vscode.window.showTextDocument(doc);
+                    }
+                }
+            });
         });
-        this.ui.addLog('👁️ Watching for PRD.md creation...');
+        this.ui.addLog('👁️ Watching for PRD creation...');
     }
 
     /**

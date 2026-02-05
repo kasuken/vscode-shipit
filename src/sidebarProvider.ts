@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { IShipItUI, TaskCompletion, TaskStats, Task, UserStory, ModelSettings } from './types';
-import { getTaskStatsAsync, getNextTaskAsync, getAllTasksAsync, getAllUserStoriesAsync, getUserStoryStatsAsync } from './fileUtils';
+import { getTaskStatsAsync, getNextTaskAsync, getAllTasksAsync, getAllUserStoriesAsync, getUserStoryStatsAsync, getPrdPath } from './fileUtils';
 import { getModelSettings, updateModelSetting } from './config';
 import { getCopilotService } from './copilotSdk';
 import { log } from './logger';
@@ -61,6 +61,9 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
                 case 'generatePrd':
                     vscode.commands.executeCommand('shipit.generatePrd');
                     break;
+                case 'createManualPrd':
+                    vscode.commands.executeCommand('shipit.createManualPrd');
+                    break;
                 case 'generateUserStories':
                     if (data.taskDescription) {
                         vscode.commands.executeCommand('shipit.generateUserStories', data.taskDescription);
@@ -99,18 +102,21 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
     }
 
     /**
-     * Open PRD.md file in editor
+     * Open PRD file in editor
      */
     private async _openPrdFile(): Promise<void> {
-        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-        if (!workspaceFolder) { return; }
+        const prdPathStr = getPrdPath();
+        if (!prdPathStr) { 
+            vscode.window.showWarningMessage('No workspace folder open');
+            return; 
+        }
 
-        const prdPath = vscode.Uri.joinPath(workspaceFolder.uri, 'PRD.md');
+        const prdPath = vscode.Uri.file(prdPathStr);
         try {
             const doc = await vscode.workspace.openTextDocument(prdPath);
             await vscode.window.showTextDocument(doc);
         } catch {
-            vscode.window.showWarningMessage('PRD.md not found. Generate one first.');
+            vscode.window.showWarningMessage('PRD not found. Generate one first.');
         }
     }
 
@@ -534,6 +540,12 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
         .hidden {
             display: none !important;
         }
+        .empty-state-links {
+            margin-top: 8px;
+        }
+        .empty-state-links .link {
+            display: inline;
+        }
         .header-elapsed-inline {
             font-size: 11px;
             color: var(--vscode-descriptionForeground);
@@ -672,8 +684,13 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
                 <button id="btnNext" class="btn-secondary">
                     ⏭ Single Step
                 </button>
+            </div>
+            <div class="btn-row">
                 <button id="btnGenerate" class="btn-secondary">
-                    📝 Generate PRD
+                    🤖 Generate PRD
+                </button>
+                <button id="btnManualPrd" class="btn-secondary">
+                    ✏️ Write PRD
                 </button>
             </div>
     </div>
@@ -885,12 +902,16 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
             const genAllLink = document.getElementById('generateAllStoriesLink');
             
             if (!state.tasks || state.tasks.length === 0) {
-                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><div>No PRD found</div><div id="generatePrdLinkEmpty" class="link">Generate one</div></div>';
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><div>No PRD found</div><div class="empty-state-links"><span id="generatePrdLinkEmpty" class="link">Generate PRD</span> or <span id="writePrdLinkEmpty" class="link">Write manually</span></div></div>';
                 if (genAllLink) { genAllLink.style.display = 'none'; }
-                // Re-attach event listener for dynamically created link
-                const link = document.getElementById('generatePrdLinkEmpty');
-                if (link) {
-                    link.addEventListener('click', () => send('generatePrd'));
+                // Re-attach event listeners for dynamically created links
+                const genLink = document.getElementById('generatePrdLinkEmpty');
+                if (genLink) {
+                    genLink.addEventListener('click', () => send('generatePrd'));
+                }
+                const writeLink = document.getElementById('writePrdLinkEmpty');
+                if (writeLink) {
+                    writeLink.addEventListener('click', () => send('createManualPrd'));
                 }
                 return;
             }
@@ -1137,6 +1158,7 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
         document.getElementById('btnResume').addEventListener('click', () => send('resume'));
         document.getElementById('btnNext').addEventListener('click', () => send('next'));
         document.getElementById('btnGenerate').addEventListener('click', () => send('generatePrd'));
+        document.getElementById('btnManualPrd').addEventListener('click', () => send('createManualPrd'));
         document.getElementById('openPrdLink').addEventListener('click', () => send('openPrd'));
         document.getElementById('viewLogsLink').addEventListener('click', () => send('viewLogs'));
         

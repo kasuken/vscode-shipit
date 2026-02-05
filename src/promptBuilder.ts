@@ -52,6 +52,10 @@ export function applyCustomTemplate(template: string, variables: TemplateVariabl
  * Build the requirements steps list
  */
 function buildRequirementsSteps(taskDescription: string, requirements: TaskRequirements): string[] {
+    const config = getConfig();
+    const prdPath = config.files.prdPath;
+    const progressPath = config.files.progressPath;
+    
     const reqSteps: string[] = ['1. ✅ Implement the task'];
     let stepNum = 2;
 
@@ -79,9 +83,9 @@ function buildRequirementsSteps(taskDescription: string, requirements: TaskRequi
         reqSteps.push(`${stepNum}. ✅ Commit your changes with a descriptive message`);
         stepNum++;
     }
-    reqSteps.push(`${stepNum}. ✅ UPDATE PRD.md: Change "- [ ] ${taskDescription}" to "- [x] ${taskDescription}"`);
+    reqSteps.push(`${stepNum}. ✅ UPDATE ${prdPath}: Change "- [ ] ${taskDescription}" to "- [x] ${taskDescription}"`);
     stepNum++;
-    reqSteps.push(`${stepNum}. ✅ APPEND to progress.txt: Record what you completed`);
+    reqSteps.push(`${stepNum}. ✅ APPEND to ${progressPath}: Record what you completed`);
 
     return reqSteps;
 }
@@ -92,6 +96,9 @@ function buildRequirementsSteps(taskDescription: string, requirements: TaskRequi
 export async function buildAgentPromptAsync(taskDescription: string, requirements: TaskRequirements): Promise<string> {
     const sanitizedTask = sanitizeTaskDescription(taskDescription);
     const config = getConfig();
+    
+    const prdPath = config.files.prdPath;
+    const progressPath = config.files.progressPath;
 
     const prd = await readPRDAsync() || '';
     const progress = await readProgressAsync();
@@ -117,17 +124,17 @@ export async function buildAgentPromptAsync(taskDescription: string, requirement
         sanitizedTask,
         '',
         '===================================================================',
-        '          MANDATORY: UPDATE PRD.md AND progress.txt WHEN DONE',
+        `          MANDATORY: UPDATE ${prdPath} AND ${progressPath} WHEN DONE`,
         '═══════════════════════════════════════════════════════════════',
         '',
         '🚨 THESE STEPS ARE REQUIRED - DO NOT SKIP THEM! 🚨',
         '',
-        '1. After completing the task, UPDATE PRD.md:',
+        `1. After completing the task, UPDATE ${prdPath}:`,
         '',
         `   Find this line:    - [ ] ${sanitizedTask}`,
         `   Change it to:      - [x] ${sanitizedTask}`,
         '',
-        '2. APPEND to progress.txt with what you did:',
+        `2. APPEND to ${progressPath} with what you did:`,
         '',
         '   Add a new line describing what was completed, e.g.:',
         `   "Completed: ${sanitizedTask} - [brief summary of changes made]"`,
@@ -138,7 +145,7 @@ export async function buildAgentPromptAsync(taskDescription: string, requirement
         '                      PROJECT CONTEXT',
         '═══════════════════════════════════════════════════════════════',
         '',
-        '## Current PRD.md Contents:',
+        `## Current ${prdPath} Contents:`,
         '',
         '┌─────────────────────────────────────────────────────────────┐',
         prd || '(No PRD content found)',
@@ -147,7 +154,7 @@ export async function buildAgentPromptAsync(taskDescription: string, requirement
     ];
 
     if (progress && progress.trim()) {
-        parts.push('## Progress Log (progress.txt):');
+        parts.push(`## Progress Log (${progressPath}):`);
         parts.push('This file tracks completed work. Append your progress here when done.');
         parts.push('');
         parts.push('┌─────────────────────────────────────────────────────────────┐');
@@ -155,8 +162,8 @@ export async function buildAgentPromptAsync(taskDescription: string, requirement
         parts.push('└─────────────────────────────────────────────────────────────┘');
         parts.push('');
     } else {
-        parts.push('## Progress Log (progress.txt):');
-        parts.push('No progress recorded yet. Create or append to progress.txt when you complete this task.');
+        parts.push(`## Progress Log (${progressPath}):`);
+        parts.push(`No progress recorded yet. Create or append to ${progressPath} when you complete this task.`);
         parts.push('');
     }
 
@@ -170,7 +177,7 @@ export async function buildAgentPromptAsync(taskDescription: string, requirement
     parts.push('');
     parts.push(`Workspace: ${root}`);
     parts.push('');
-    parts.push('Begin now. Remember: updating both PRD.md and progress.txt when done is MANDATORY!');
+    parts.push(`Begin now. Remember: updating both ${prdPath} and ${progressPath} when done is MANDATORY!`);
 
     return parts.join('\n');
 }
@@ -181,6 +188,9 @@ export async function buildAgentPromptAsync(taskDescription: string, requirement
 export function buildPrdGenerationPrompt(taskDescription: string, workspaceRoot: string): string {
     const sanitizedTask = sanitizeTaskDescription(taskDescription);
     const config = getConfig();
+
+    // Get the configured PRD path
+    const prdPath = config.files.prdPath;
 
     // Check if custom PRD generation template is provided
     if (config.prompt.customPrdGenerationTemplate && config.prompt.customPrdGenerationTemplate.trim()) {
@@ -196,12 +206,12 @@ export function buildPrdGenerationPrompt(taskDescription: string, workspaceRoot:
     return `
 
 ===================================================================
-                       CREATE PRD.md FILE
+                       CREATE PRD FILE
 ===================================================================
 
 You are a PRD Generator. Your role is to create clear, actionable PRD files.
 
-The user wants to build something. Your job is to create a PRD.md file with a structured task list.
+The user wants to build something. Your job is to create a ${prdPath} file with a structured task list.
 
 ## USER'S REQUEST:
 ${sanitizedTask}
@@ -210,7 +220,7 @@ ${sanitizedTask}
                     REQUIRED OUTPUT FORMAT
 ===================================================================
 
-Create a file called \`PRD.md\` in the workspace root with this EXACT structure:
+Create a file called \`${prdPath}\` with this EXACT structure:
 
 \`\`\`markdown
 # Project Name
@@ -227,12 +237,11 @@ Create a file called \`PRD.md\` in the workspace root with this EXACT structure:
 ═══════════════════════════════════════════════════════════════
 
 1. **Task Format**: Each task MUST use \`- [ ] \` checkbox format (this is how ShipIt tracks progress)
-2. **Keep it SHORT**: Generate exactly 5-6 tasks maximum. Each task runs as a separate agent request.
-3. **Logical Order**: Order tasks so they can be completed sequentially
-4. **Comprehensive Tasks**: Each task should accomplish a meaningful chunk of work (not too granular!)
-5. **Clear Actions**: Start each task with a verb (Create, Add, Implement, Configure, etc.)
+2. **Logical Order**: Order tasks so they can be completed sequentially
+3. **Comprehensive Tasks**: Each task should accomplish a meaningful chunk of work (not too granular!)
+4. **Clear Actions**: Start each task with a verb (Create, Add, Implement, Configure, etc.)
 
-## EXAMPLE TASKS (good - notice only 5 tasks!):
+## EXAMPLE TASKS:
 - [ ] Set up project structure with dependencies and configuration
 - [ ] Create the core data models and types
 - [ ] Implement the main application logic and components
@@ -242,13 +251,12 @@ Create a file called \`PRD.md\` in the workspace root with this EXACT structure:
 ## BAD TASKS (too many or too granular):
 - [ ] Create package.json (too small - combine with other setup)
 - [ ] Add button component (too granular - combine UI work)
-- [ ] 20+ tasks (way too many - keep it to 5-6!)
 
 ═══════════════════════════════════════════════════════════════
 
 Workspace: ${workspaceRoot}
 
-Now create the PRD.md file based on the user's request above. Make the tasks specific and actionable.`;
+Now create the ${prdPath} file based on the user's request above. Make the tasks specific and actionable.`;
 }
 
 /**
@@ -256,6 +264,9 @@ Now create the PRD.md file based on the user's request above. Make the tasks spe
  */
 export async function buildUserStoriesGenerationPrompt(taskDescription: string, taskId: string, storyCount: number = 3): Promise<string> {
     const sanitizedTask = sanitizeTaskDescription(taskDescription);
+    const config = getConfig();
+    const prdPath = config.files.prdPath;
+    
     const prd = await readPRDAsync() || '';
     const root = getWorkspaceRoot();
 
@@ -270,7 +281,7 @@ You are a User Story Generator. Your role is to break down tasks into smaller, i
 ## TASK TO BREAK DOWN:
 ${sanitizedTask}
 
-## PROJECT CONTEXT (PRD.md):
+## PROJECT CONTEXT (${prdPath}):
 \`\`\`markdown
 ${prd}
 \`\`\`
@@ -310,7 +321,6 @@ Add a new section with this EXACT format:
 ## BAD USER STORIES:
 - [ ] Create file (too vague - what file? why?)
 - [ ] Fix bug (what bug? be specific)
-- [ ] 12+ stories (too many - keep it to 5-8!)
 
 ═══════════════════════════════════════════════════════════════
 
@@ -329,6 +339,9 @@ export async function buildUserStoryImplementationPrompt(
 ): Promise<string> {
     const sanitizedStory = sanitizeTaskDescription(userStoryDescription);
     const sanitizedTask = sanitizeTaskDescription(taskDescription);
+    const config = getConfig();
+    const prdPath = config.files.prdPath;
+    
     const prd = await readPRDAsync() || '';
     const userStories = await readUserStoriesAsync() || '';
     const root = getWorkspaceRoot();
@@ -349,7 +362,7 @@ export async function buildUserStoryImplementationPrompt(
         '                      PROJECT CONTEXT',
         '===================================================================',
         '',
-        '## Current PRD.md Contents:',
+        `## Current ${prdPath} Contents:`,
         '',
         '┌─────────────────────────────────────────────────────────────┐',
         prd || '(No PRD content found)',
