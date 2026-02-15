@@ -312,28 +312,69 @@ export class LoopOrchestrator {
             return;
         }
 
-        // Generate stories for the first task that needs them
-        // User can click again to generate for the next task
-        const firstTask = tasksNeedingStories[0];
+        // Generate stories for all tasks
         this.ui.addLog(`📋 Generating user stories for ${tasksNeedingStories.length} task(s)...`);
-        this.ui.addLog(`Starting with: ${firstTask.description}`);
         
-        // Show progress notification
         vscode.window.showInformationMessage(
-            `Generating user stories for ${tasksNeedingStories.length} task(s). Starting with: ${firstTask.description.substring(0, 40)}...`
+            `Generating user stories for ${tasksNeedingStories.length} task(s)...`
         );
         
-        await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: "ShipIt",
-            cancellable: false
-        }, async (progress) => {
-            progress.report({ message: `Generating user stories (1/${tasksNeedingStories.length})...` });
-            await this.taskRunner.triggerUserStoriesGeneration(firstTask.description, firstTask.id);
-            progress.report({ message: "User stories generation in progress." });
-        });
+        // Process each task sequentially
+        for (let i = 0; i < tasksNeedingStories.length; i++) {
+            const task = tasksNeedingStories[i];
+            const taskNum = i + 1;
+            const total = tasksNeedingStories.length;
+            
+            this.ui.addLog(`[${taskNum}/${total}] Starting: ${task.description}`);
+            
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: "ShipIt",
+                cancellable: false
+            }, async (progress) => {
+                progress.report({ message: `Generating user stories (${taskNum}/${total})...` });
+                await this.taskRunner.triggerUserStoriesGeneration(task.description, task.id);
+                
+                // Wait for stories to be created
+                let hasStories = false;
+                const maxWaitTime = 120000; // 2 minutes max wait
+                const checkInterval = 1000; // Check every second
+                let elapsed = 0;
+                
+                progress.report({ message: `Waiting for stories (${taskNum}/${total})...` });
+                
+                while (!hasStories && elapsed < maxWaitTime) {
+                    await new Promise(resolve => setTimeout(resolve, checkInterval));
+                    hasStories = await hasUserStoriesForTaskAsync(task.description);
+                    elapsed += checkInterval;
+                }
+                
+                if (hasStories) {
+                    const stats = await getUserStoryStatsAsync(task.description);
+                    this.ui.addLog(`✅ [${taskNum}/${total}] ${stats.total} stor${stats.total === 1 ? 'y' : 'ies'} created for: ${task.description}`, true);
+                } else {
+                    this.ui.addLog(`⚠️ [${taskNum}/${total}] Timeout waiting for stories: ${task.description}`);
+                }
+            });
+        }
         
-        this.setupUserStoriesCreationWatcher(firstTask.description);
+        this.ui.addLog('✅ All user stories generation complete!', true);
+        await this.ui.refresh();
+        
+        vscode.window.showInformationMessage(
+            `✅ User stories generated for all ${tasksNeedingStories.length} task(s)!`,
+            'View Stories'
+        ).then(async action => {
+            if (action === 'View Stories') {
+                try {
+                    const userStoriesPath = vscode.Uri.file(root + '/.shipit/userstories.md');
+                    const doc = await vscode.workspace.openTextDocument(userStoriesPath);
+                    await vscode.window.showTextDocument(doc);
+                } catch (error) {
+                    vscode.window.showErrorMessage('Could not open user stories file');
+                }
+            }
+        });
     }
 
     /**
