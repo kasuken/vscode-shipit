@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Advance the loop from completed SDK requests rather than late file watchers.
+- Keep failed and cancelled stories incomplete; scope checkbox updates to the exact parent task and story.
+- Abort active requests and retry delays on Stop; prevent overlapping commands and duplicate work on Resume.
+- Settle cancelled countdowns and clear generation state after errors.
+- Open the actual sidebar from the control-panel command and use the configured model for single-step execution.
+- Launch the bundled SDK CLI correctly under VS Code's Electron runtime and report unavailable models.
+
+### Changed
+- Simplified orchestration to a single sequential workflow with verified generation results.
+- Removed the unused Copilot Chat extension dependency; explicitly require a trusted workspace.
+- Added extension-host regression tests and an opt-in live Copilot smoke test.
+
 ## [3.0.0] - 2026-02-05
 
 ### New Features

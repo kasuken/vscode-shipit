@@ -39,14 +39,14 @@ ShipIt is a VS Code extension that orchestrates the GitHub Copilot SDK to implem
 4. Tracks progress and automatically continues to the next task
 5. Maintains a progress log of completed work
 
-The extension provides a sidebar control panel with real-time status, file watching for progress tracking, and automatic error recovery with retry logic.
+The extension provides a sidebar control panel with real-time status and automatic retry logic for transient errors. It waits for each SDK request to finish before advancing, then verifies the generated files.
 
 ## Features
 
 - **Autonomous Task Loop** - Continuously works through your PRD until complete
 - **User Stories Workflow** - Breaks complex tasks into smaller, implementable pieces
 - **Sidebar Control Panel** - Full control and real-time progress from VS Code Activity Bar
-- **Smart Progress Tracking** - Watches files and automatically detects task completion
+- **Smart Progress Tracking** - Verifies completed SDK requests and updates task and story checkboxes
 - **Error Recovery** - Built-in retry logic with exponential backoff for failed API calls
 - **PRD Generation** - Create structured task lists from descriptions
 - **Progress Logging** - Maintains a record of all completed work
@@ -94,7 +94,7 @@ Before starting, ensure you have:
   ```bash
   copilot --version  # Verify installation
   ```
-- **Node.js 18+** (for development)
+- **Node.js 20+** (for development)
 - **Active GitHub Copilot subscription**
 
 > [!TIP]
@@ -106,9 +106,11 @@ Fastest way to get started:
 
 1. Open Command Palette (Cmd/Ctrl + Shift + P)
 2. Run **ShipIt: Generate PRD from Description**
-3. Describe your project (e.g., "A REST API for managing todo items with user authentication")
-4. Copilot creates `.shipit/PRD.md` with structured tasks
-5. Run **ShipIt: Start Loop** to begin implementation
+3. Write your description in the opened `.shipit/project_description.md` file and save it
+4. Run **ShipIt: Generate PRD from Description** again to create `.shipit/PRD.md`
+5. Choose enabled models in the sidebar settings, then run **ShipIt: Start Loop**
+
+Open the project as a trusted VS Code workspace. ShipIt executes Copilot tools that can edit files and run commands. The SDK includes its CLI runtime; the separate Copilot Chat extension is not required.
 
 ### 2. Use an Existing PRD
 
@@ -144,12 +146,15 @@ Click the **📦** icon in VS Code's Activity Bar to open the ShipIt sidebar:
 |---------|----------|-------------|
 | ShipIt: Start Loop | - | Start autonomous implementation |
 | ShipIt: Stop Loop | - | Stop the current loop |
-| ShipIt: Pause Loop | - | Pause execution (can resume) |
+| ShipIt: Pause Loop | - | Let the active request finish; pause before the next step |
 | ShipIt: Resume Loop | - | Resume from pause |
 | ShipIt: Run Single Step | - | Execute just the next task |
 | ShipIt: Generate PRD from Description | - | Create PRD.md from text |
 | ShipIt: Generate All User Stories | - | Generate stories for all tasks |
 | ShipIt: View Logs | - | Open the output log |
+| ShipIt: Open Control Panel | - | Focus the ShipIt sidebar |
+
+**Stop** aborts the active SDK request and cancels retries. A failed or cancelled request does not mark its story complete. Files already edited by Copilot are not rolled back; review them before restarting.
 
 ## File Structure
 
@@ -206,9 +211,13 @@ Access settings via VS Code Settings (Cmd/Ctrl + ,) and search for "ShipIt":
 |---------|---------|-------------|
 | `shipit.files.prdPath` | `.shipit/PRD.md` | Path to the PRD file |
 | `shipit.files.progressPath` | `.shipit/progress.txt` | Path to the progress log |
-| `shipit.userStories.countPerTask` | `3` | Number of user stories per task (1-10) |
 | `shipit.prompt.customTemplate` | (empty) | Custom prompt template for tasks |
 | `shipit.prompt.customPrdGenerationTemplate` | (empty) | Custom PRD generation template |
+| `shipit.models.prdGeneration` | `gpt-5.2` | PRD generation model |
+| `shipit.models.userStoriesGeneration` | `gpt-5.2` | Story generation model |
+| `shipit.models.taskImplementation` | `gpt-5-mini` | Task and story implementation model |
+
+Model availability depends on your account and organization policy. Choose an enabled model from the sidebar if a configured model is shown as unavailable. ShipIt reports discovery failures instead of presenting an unverified fallback list.
 
 ### Custom Prompt Templates
 
@@ -230,7 +239,7 @@ src/
 ├── copilotSdk.ts         # Copilot SDK wrapper with retry logic
 ├── sidebarProvider.ts    # Sidebar webview UI
 ├── fileUtils.ts          # PRD parsing and file operations
-├── fileWatchers.ts       # File change detection
+├── fileWatchers.ts       # Workspace activity monitoring
 ├── promptBuilder.ts      # Prompt construction
 ├── config.ts             # Configuration handling
 ├── types.ts              # TypeScript interfaces
@@ -251,6 +260,7 @@ src/
 ## Troubleshooting
 
 ### Extension won't start
+- Trust the workspace if VS Code shows Restricted Mode; reload the window after enabling trust if activation previously failed.
 - Ensure Copilot CLI is installed: `copilot --version`
 - Verify authentication: `copilot auth status`
 - Check VS Code version is 1.93+
@@ -259,6 +269,8 @@ src/
 - Check the Activity Log for errors
 - Verify PRD.md format (tasks must be `- [ ]`)
 - Ensure workspace has write permissions
+- Check that the configured models are enabled for your account
+- After a failed request, fix the reported error and start again; incomplete work is not skipped
 
 ### API errors (400, 429, 500)
 - The extension includes automatic retry logic with exponential backoff
@@ -286,7 +298,7 @@ src/
 - **GitHub Copilot CLI** - For Copilot SDK integration
   - [Installation guide](https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli)
   - Run `copilot --version` to verify
-- **Node.js 18+** - For runtime (included with VS Code)
+- **Node.js 20+** - For development; the extension uses VS Code's embedded runtime
 - **Active GitHub Copilot subscription** - Required for API access
 
 ## Known Limitations
@@ -294,7 +306,28 @@ src/
 - Requires Copilot CLI (SDK is in Technical Preview)
 - Works best with clear, well-structured PRDs
 - Large PRDs may take longer to process
-- Progress tracking depends on Copilot updating files correctly
+- Direct task implementation must update the PRD checkbox; ShipIt reports an error if it does not
+
+## Development and Testing
+
+```bash
+npm ci
+npm test
+```
+
+The test runner launches a real VS Code extension host in a temporary workspace. The default suite uses deterministic SDK responses and does not make paid model requests. Set `VSCODE_EXECUTABLE_PATH` to an installed VS Code executable to avoid downloading another copy.
+
+For an opt-in end-to-end smoke test with real Copilot requests (requires authentication and consumes Copilot usage):
+
+```powershell
+$env:SHIPIT_LIVE_TESTS = '1'
+npm test -- --grep 'ShipIt live SDK smoke'
+Remove-Item Env:SHIPIT_LIVE_TESTS
+```
+
+This test selects an enabled model in the temporary workspace only, generates a PRD and one user story, runs the loop and a single step, and checks both generated modules' behavior. It does not change your global model settings.
+
+Press **F5** to launch the extension interactively. Use a disposable, trusted project when testing autonomous implementation.
 
 ## Contributing
 

@@ -167,7 +167,9 @@ export class TaskRunner {
             const prompt = await buildAgentPromptAsync(taskDescription, this.requirements);
             this.log('Sending task to Copilot SDK...');
             
-            const success = await this.copilotService.executeTask(prompt);
+            const success = await this.copilotService.executeTask(prompt, {
+                model: getModelSettings().taskImplementation
+            });
             
             if (success) {
                 this.log('Copilot task execution started');
@@ -281,13 +283,15 @@ export class TaskRunner {
                 model: modelSettings.taskImplementation,
                 onComplete: async () => {
                     // Mark the user story as complete in userstories.md
-                    const marked = await markUserStoryCompleteAsync(userStoryDescription);
+                    const marked = await markUserStoryCompleteAsync(userStoryDescription, taskDescription);
                     if (marked) {
                         this.log(`✅ User story marked as complete: ${userStoryDescription.substring(0, 50)}...`);
                         // Log progress
-                        await appendProgressAsync(`Completed user story: ${userStoryDescription.substring(0, 100)}`);
+                        if (!await appendProgressAsync(`Completed user story: ${userStoryDescription.substring(0, 100)}`)) {
+                            throw new Error('Could not record user story progress');
+                        }
                     } else {
-                        this.log(`⚠️ Could not find user story to mark complete`);
+                        throw new Error('Could not find user story to mark complete');
                     }
                     
                     // Call the external onComplete callback if provided

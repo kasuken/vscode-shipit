@@ -1,36 +1,18 @@
 import * as vscode from "vscode";
 import { logError, logInfo } from "./logger";
+import { setTimeout as delay } from "node:timers/promises";
+import type { CopilotClient, CopilotSession, SessionConfig } from "@github/copilot-sdk" with { "resolution-mode": "import" };
+import { getWorkspaceRoot } from "./fileUtils";
 
-// Use any types to avoid ESM/CJS import issues with the Copilot SDK
-// The SDK is an ESM module that we load dynamically
+let CopilotClientClass: typeof CopilotClient | null = null;
 
-let CopilotClientClass: any = null;
-
-async function loadSdk(): Promise<any> {
+async function loadSdk(): Promise<typeof CopilotClient> {
   if (!CopilotClientClass) {
     // Dynamic import of ESM module
     const sdk = await import("@github/copilot-sdk");
     CopilotClientClass = sdk.CopilotClient;
   }
   return CopilotClientClass;
-}
-
-/**
- * Get the workspace root folder path
- */
-function getWorkspaceRoot(): string | undefined {
-  const workspaceFolders = vscode.workspace.workspaceFolders;
-  if (workspaceFolders && workspaceFolders.length > 0) {
-    return workspaceFolders[0].uri.fsPath;
-  }
-  return undefined;
-}
-
-/**
- * Delay execution for a specified time
- */
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -51,7 +33,6 @@ export interface CopilotSdkOptions {
   onComplete?: () => void | Promise<void>; // Callback when task completes successfully
   maxRetries?: number; // Maximum number of retries on failure (default: 3)
   retryDelayMs?: number; // Initial delay between retries in ms (default: 2000, uses exponential backoff)
-  continueOnError?: boolean; // If true, call onComplete even on final failure (default: true for user stories)
 }
 
 export type CopilotProgressHandler = (
@@ -64,10 +45,12 @@ export type CopilotProgressHandler = (
  * This replaces the old chat-based integration with the SDK approach
  */
 export class CopilotSdkService {
-  private client: any = null;
+  private client: CopilotClient | null = null;
 
-  private currentSession: any = null;
+  private currentSession: CopilotSession | null = null;
   private isStarted = false;
+  private starting: Promise<boolean> | null = null;
+  private executionAbort: AbortController | null = null;
   private progressHandler: CopilotProgressHandler | null = null;
 
   /**
@@ -84,7 +67,16 @@ export class CopilotSdkService {
     if (this.isStarted && this.client) {
       return true;
     }
+    if (this.starting) { return this.starting; }
+    this.starting = this.startClient();
+    try {
+      return await this.starting;
+    } finally {
+      this.starting = null;
+    }
+  }
 
+  private async startClient(): Promise<boolean> {
     try {
       // Dynamically load the ESM SDK module
       const ClientClass = await loadSdk();
@@ -98,20 +90,16 @@ export class CopilotSdkService {
         autoStart: true,
         autoRestart: true,
         logLevel: "debug", // Enable debug logging
-        cwd: workspaceRoot, // Set working directory to workspace
+        cwd: workspaceRoot ?? undefined,
         useStdio: true, // Use stdio for better compatibility
+        // The SDK launches its bundled CLI using process.execPath (Electron in VS Code).
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
       });
 
       await this.client.start();
+      const pong = await this.client.ping("test");
+      logInfo(`Copilot SDK connection verified: ${pong.message}`);
       this.isStarted = true;
-
-      // Test the connection with a ping
-      try {
-        const pong = await this.client.ping("test");
-        logInfo(`Copilot SDK connection verified: ${pong.message}`);
-      } catch (pingError) {
-        logError("Ping failed - connection may not be working", pingError);
-      }
 
       logInfo("Copilot SDK client started successfully");
       return true;
@@ -119,21 +107,20 @@ export class CopilotSdkService {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       logError("Failed to start Copilot SDK client", error);
+      await this.stop();
 
       // Show helpful error message
-      const action = await vscode.window.showErrorMessage(
+      void vscode.window.showErrorMessage(
         `ShipIt: Failed to start Copilot SDK. Make sure GitHub Copilot CLI is installed and you're authenticated. Error: ${errorMessage}`,
         "Install Copilot CLI",
         "Dismiss",
-      );
-
-      if (action === "Install Copilot CLI") {
-        vscode.env.openExternal(
-          vscode.Uri.parse(
-            "https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli",
-          ),
-        );
-      }
+      ).then(action => {
+        if (action === "Install Copilot CLI") {
+          void vscode.env.openExternal(
+            vscode.Uri.parse("https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli"),
+          );
+        }
+      });
 
       return false;
     }
@@ -143,16 +130,15 @@ export class CopilotSdkService {
    * Stop the Copilot client and clean up
    */
   async stop(): Promise<void> {
+    const client = this.client;
+    this.client = null;
+    this.currentSession = null;
+    this.isStarted = false;
     try {
-      if (this.currentSession) {
-        await this.currentSession.destroy();
-        this.currentSession = null;
-      }
-
-      if (this.client && this.isStarted) {
-        await this.client.stop();
-        this.isStarted = false;
-        this.client = null;
+      if (client) {
+        const errors = await client.stop();
+        for (const error of errors) { logError("Copilot cleanup failed", error); }
+        if (errors.length > 0) { await client.forceStop(); }
       }
 
       logInfo("Copilot SDK client stopped");
@@ -167,11 +153,11 @@ export class CopilotSdkService {
 
   private async createSession(
     options: CopilotSdkOptions = {},
-  ): Promise<any | null> {
+  ): Promise<CopilotSession | null> {
     if (!this.client || !this.isStarted) {
       const started = await this.start();
       if (!started) {
-        return null;
+        throw new Error("Copilot SDK could not start");
       }
     }
 
@@ -179,24 +165,29 @@ export class CopilotSdkService {
       // Destroy previous session if exists
       if (this.currentSession) {
         try {
-          await this.currentSession.destroy();
-        } catch {
-          // Ignore errors destroying old session
+          await this.currentSession.disconnect();
+        } catch (error) {
+          logError("Failed to disconnect previous session", error);
         }
         this.currentSession = null;
       }
 
       // Create session config
 
-      const sessionConfig: any = {
+      const sessionConfig: SessionConfig = {
         model: options.model || "gpt-4.1",
         streaming: options.streaming !== false,
+        workingDirectory: getWorkspaceRoot() ?? undefined,
         // Auto-approve all tool operations for autonomous workflow
         onPermissionRequest: async () => {
           logInfo("Auto-approving tool permission request");
           return { kind: "approved" };
         },
       };
+      const availableModels = await this.getAvailableModels();
+      if (!availableModels.some(model => model.id === sessionConfig.model)) {
+        throw new Error(`Model "${sessionConfig.model}" is unavailable. Choose an enabled model in ShipIt settings.`);
+      }
 
       // Add system message if provided
       if (options.systemMessage) {
@@ -205,13 +196,14 @@ export class CopilotSdkService {
         };
       }
 
+      if (!this.client) { return null; }
       this.currentSession = await this.client.createSession(sessionConfig);
       logInfo(`Created new Copilot session with model: ${sessionConfig.model}`);
 
       return this.currentSession;
     } catch (error) {
       logError("Failed to create Copilot session", error);
-      return null;
+      throw error;
     }
   }
 
@@ -245,6 +237,9 @@ export class CopilotSdkService {
       if (!session) {
         return { success: false, error: "Failed to create session" };
       }
+      if (this.executionAbort?.signal.aborted) {
+        return { success: false, error: "Operation cancelled" };
+      }
 
       logInfo(`Session created: ${session.sessionId}`);
 
@@ -254,7 +249,7 @@ export class CopilotSdkService {
 
       // Set up event handler for streaming
 
-      const unsubscribe = session.on((event: any) => {
+      const unsubscribe = session.on((event) => {
         switch (event.type) {
           case "assistant.message_delta":
             // Streaming chunk
@@ -296,8 +291,8 @@ export class CopilotSdkService {
 
           case "tool.execution_progress":
             // Tool progress update
-            if (event.data?.message) {
-              logInfo(`Tool progress: ${event.data.message}`);
+            if (event.data?.progressMessage) {
+              logInfo(`Tool progress: ${event.data.progressMessage}`);
             }
             break;
 
@@ -326,6 +321,9 @@ export class CopilotSdkService {
         // Send and wait for completion (with configurable timeout)
         const timeout = options.timeout || 300000; // Default 5 minutes for complex tasks
         const result = await session.sendAndWait({ prompt }, timeout);
+        if (this.executionAbort?.signal.aborted) {
+          return { success: false, error: "Operation cancelled" };
+        }
 
         // Get the response content
         if (result?.data?.content) {
@@ -335,6 +333,9 @@ export class CopilotSdkService {
         }
 
         return { success: true, response: fullResponse };
+      } catch (error) {
+        await session.abort();
+        throw error;
       } finally {
         unsubscribe();
       }
@@ -359,100 +360,61 @@ export class CopilotSdkService {
   /**
    * Execute a task using Copilot (main workflow)
    * Includes retry logic with exponential backoff
-   * Calls the onComplete callback when task finishes (successfully or after all retries if continueOnError)
+   * Calls onComplete only after a successful, uncancelled request.
    */
   async executeTask(
     prompt: string,
     options: CopilotSdkOptions = {},
   ): Promise<boolean> {
-    const maxRetries = options.maxRetries ?? 3;
-    const baseDelayMs = options.retryDelayMs ?? 2000;
-    const continueOnError = options.continueOnError ?? true; // Default: continue workflow even on error
-
-    let lastError: string | undefined;
-    let success = false;
-
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      if (attempt > 0) {
-        const backoffDelay = getBackoffDelay(attempt - 1, baseDelayMs);
-        logInfo(
-          `Retry attempt ${attempt}/${maxRetries} after ${Math.round(backoffDelay)}ms delay...`,
-        );
-        this.progressHandler?.(`Retrying (${attempt}/${maxRetries})...`, false);
-        await delay(backoffDelay);
-
-        // Try to restart the client before retry
-        try {
-          await this.stop();
-          await this.start();
-          logInfo("Copilot client restarted for retry");
-        } catch (restartError) {
-          logError("Failed to restart client for retry", restartError);
-        }
-      }
-
-      const result = await this.sendPrompt(prompt, {
-        streaming: true,
-        ...options,
-      });
-
-      if (result.success) {
-        success = true;
-        break;
-      }
-
-      lastError = result.error;
-      logError(
-        `Copilot task attempt ${attempt + 1} failed: ${lastError}`,
-        null,
-      );
-
-      // Check if error is retryable
-      if (!this.isRetryableError(lastError)) {
-        logInfo("Error is not retryable, stopping retry attempts");
-        break;
-      }
-    }
-
-    if (!success) {
-      const errorMsg = `Copilot task failed after ${maxRetries + 1} attempts: ${lastError}`;
-      logError(errorMsg, null);
-      vscode.window.showWarningMessage(
-        `ShipIt: ${errorMsg}. Continuing to next task...`,
-      );
-
-      // If continueOnError is true, still call onComplete to continue the workflow
-      if (continueOnError && options.onComplete) {
-        try {
-          logInfo("Calling onComplete despite error (continueOnError=true)");
-          await options.onComplete();
-          logInfo("Task completion callback executed (after error)");
-        } catch (error) {
-          logError("Error in task completion callback", error);
-        }
-      }
-
+    if (this.executionAbort) {
+      logError("A Copilot task is already running", null);
       return false;
     }
-
-    // Call the onComplete callback on success
-    if (options.onComplete) {
-      try {
-        await options.onComplete();
-        logInfo("Task completion callback executed");
-      } catch (error) {
-        logError("Error in task completion callback", error);
+    const controller = new AbortController();
+    this.executionAbort = controller;
+    const maxRetries = options.maxRetries ?? 3;
+    let attempts = 0;
+    let lastError: string | undefined;
+    try {
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        if (controller.signal.aborted) { return false; }
+        if (attempt > 0) {
+          this.progressHandler?.(`Retrying (${attempt}/${maxRetries})...`, false);
+          await delay(getBackoffDelay(attempt - 1, options.retryDelayMs ?? 2000), undefined, { signal: controller.signal });
+          await this.stop();
+          if (controller.signal.aborted) { return false; }
+        }
+        attempts++;
+        const result = await this.sendPrompt(prompt, { streaming: true, ...options });
+        if (controller.signal.aborted) { return false; }
+        if (result.success) {
+          await options.onComplete?.();
+          return true;
+        }
+        lastError = result.error;
+        logError(`Copilot task attempt ${attempts} failed: ${lastError}`, null);
+        if (!this.isRetryableError(lastError)) { break; }
       }
+      vscode.window.showErrorMessage(`ShipIt: Copilot task failed after ${attempts} attempt(s): ${lastError}. Work remains incomplete.`);
+      return false;
+    } catch (error) {
+      if (controller.signal.aborted) {
+        logInfo("Copilot task cancelled");
+      } else {
+        logError("Copilot task or completion callback failed", error);
+        vscode.window.showErrorMessage(`ShipIt: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      return false;
+    } finally {
+      this.executionAbort = null;
     }
-
-    return true;
   }
 
   /**
    * Check if an error is retryable
    */
   private isRetryableError(error: string | undefined): boolean {
-    if (!error) return true;
+    if (!error) { return true; }
 
     const errorLower = error.toLowerCase();
 
@@ -491,6 +453,7 @@ export class CopilotSdkService {
       "malformed",
       "authentication",
       "invalid_request_body",
+      "is unavailable",
     ];
 
     // Check for non-retryable first
@@ -522,7 +485,7 @@ export class CopilotSdkService {
    * Get the current session (if any)
    */
 
-  getCurrentSession(): any | null {
+  getCurrentSession(): CopilotSession | null {
     return this.currentSession;
   }
 
@@ -534,23 +497,23 @@ export class CopilotSdkService {
     if (!this.client || !this.isStarted) {
       const started = await this.start();
       if (!started) {
-        // Return default models if client can't start
-        return getDefaultModels();
+        throw new Error("Copilot SDK could not start. Model list is unavailable.");
       }
     }
 
     try {
       // Try to get models from the SDK client
+      if (!this.client) { throw new Error("Copilot SDK is not connected"); }
       const models = await this.client.listModels();
       if (models && Array.isArray(models) && models.length > 0) {
         // Filter to enabled models only and extract id and name
         const enabledModels = models
-          .filter((m: any) => !m.policy || m.policy.state === 'enabled')
-          .map((m: any) => ({
+          .filter(m => !m.policy || m.policy.state === 'enabled')
+          .map(m => ({
             id: m.id,
             name: m.name || m.id
           }))
-          .filter((m: any) => m.id);
+          .filter(m => m.id);
 
         if (enabledModels.length > 0) {
           logInfo(`Retrieved ${enabledModels.length} enabled models from SDK`);
@@ -558,12 +521,10 @@ export class CopilotSdkService {
         }
       }
 
-      // If SDK doesn't provide models, return defaults
-      logInfo("SDK getModels not available, using default models");
-      return getDefaultModels();
+      throw new Error("Copilot returned no enabled models");
     } catch (error) {
       logError("Failed to get models from SDK", error);
-      return getDefaultModels();
+      throw error;
     }
   }
 
@@ -571,6 +532,7 @@ export class CopilotSdkService {
    * Abort the current operation
    */
   async abort(): Promise<void> {
+    this.executionAbort?.abort();
     if (this.currentSession) {
       try {
         await this.currentSession.abort();
@@ -580,24 +542,6 @@ export class CopilotSdkService {
       }
     }
   }
-}
-
-/**
- * Get default available models
- * These are common Copilot/OpenAI models that are typically available
- */
-function getDefaultModels(): Array<{id: string, name: string}> {
-  return [
-    { id: "gpt-4.1", name: "GPT-4.1" },
-    { id: "gpt-4o", name: "GPT-4o" },
-    { id: "gpt-4o-mini", name: "GPT-4o Mini" },
-    { id: "gpt-4.5-preview", name: "GPT-4.5 Preview" },
-    { id: "gpt-5.2", name: "GPT-5.2" },
-    { id: "gpt-5-mini", name: "GPT-5 Mini" },
-    { id: "claude-sonnet-4", name: "Claude Sonnet 4" },
-    { id: "o3", name: "O3" },
-    { id: "o4-mini", name: "O4 Mini" },
-  ];
 }
 
 // Singleton instance

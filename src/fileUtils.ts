@@ -216,7 +216,7 @@ export async function getAllTasksAsync(): Promise<Task[]> {
  */
 function hasUserStoriesInContent(content: string, taskDescription: string): boolean {
     const escapedTask = escapeRegExp(taskDescription);
-    const taskSectionPattern = new RegExp(`^##\\s+Task:\\s*${escapedTask}`, 'im');
+    const taskSectionPattern = new RegExp(`^##\\s+Task:\\s*${escapedTask}\\s*$`, 'im');
     
     if (!taskSectionPattern.test(content)) {
         return false;
@@ -530,7 +530,7 @@ function parseUserStoriesFromContent(content: string, taskId: string): UserStory
 
     // Find the section for this task
     let inTaskSection = false;
-    let taskSectionPattern = new RegExp(`^##\\s+Task:\\s*${escapeRegExp(taskId)}`, 'i');
+    const taskSectionPattern = new RegExp(`^##\\s+Task:\\s*${escapeRegExp(taskId)}\\s*$`, 'i');
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
@@ -687,34 +687,47 @@ export async function areAllUserStoriesCompleteAsync(taskId: string): Promise<bo
  * @param userStoryDescription The description text of the user story to mark complete
  * @returns true if the user story was found and marked complete, false otherwise
  */
-export async function markUserStoryCompleteAsync(userStoryDescription: string): Promise<boolean> {
+export async function markUserStoryCompleteAsync(userStoryDescription: string, taskDescription: string): Promise<boolean> {
     const content = await readUserStoriesAsync();
     if (!content) { return false; }
 
     const lines = content.split('\n');
-    let modified = false;
+    const story = parseUserStoriesFromContent(content, taskDescription)
+        .find(item => item.description === userStoryDescription.trim());
+    if (!story) {
+        logError(`User story not found in task "${taskDescription}": ${userStoryDescription}`, null);
+        return false;
+    }
+    if (story.status === UserStoryStatus.COMPLETE) { return true; }
+    lines[story.lineNumber - 1] = lines[story.lineNumber - 1].replace(/\[[ ~]\]/, '[x]');
+    return await writeUserStoriesAsync(lines.join('\n'));
+}
 
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        // Match pending or in-progress user story checkbox
-        const match = /^([-*]\s*)\[([ ~])\]\s*(.+)$/im.exec(line);
-        if (match) {
-            const description = match[3].trim();
-            // Check if this is the user story we're looking for
-            if (description === userStoryDescription.trim() || 
-                description.includes(userStoryDescription.trim()) ||
-                userStoryDescription.trim().includes(description)) {
-                // Mark as complete
-                lines[i] = `${match[1]}[x] ${description}`;
-                modified = true;
-                break;
-            }
+export async function markTaskCompleteAsync(taskDescription: string): Promise<boolean> {
+    const content = await readPRDAsync();
+    const configuredPath = getPrdPath();
+    const root = getWorkspaceRoot();
+    if (!content || !configuredPath || !root) { return false; }
+    const task = parseTasksFromContent(content).find(item => item.description === taskDescription);
+    if (!task || task.status === TaskStatus.BLOCKED) {
+        logError(`Task not found or blocked: ${taskDescription}`, null);
+        return false;
+    }
+    if (task.status === TaskStatus.COMPLETE) { return true; }
+    const lines = content.split('\n');
+    lines[task.lineNumber - 1] = task.rawLine.replace(/\[[ ~]\]/, '[x]');
+    try {
+        let target = configuredPath;
+        try {
+            await fsPromises.access(target);
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') { throw error; }
+            target = path.join(root, 'PRD.md');
         }
+        await fsPromises.writeFile(target, lines.join('\n'), 'utf8');
+        return true;
+    } catch (error) {
+        logError('Failed to mark PRD task complete', error);
+        return false;
     }
-
-    if (modified) {
-        return await writeUserStoriesAsync(lines.join('\n'));
-    }
-    
-    return false;
 }

@@ -81,7 +81,7 @@ export class UIManager {
      */
     async updateStats(): Promise<void> {
         await this.panel?.updateStats();
-        this.sidebarView?.updateStats();
+        await this.sidebarView?.updateStats();
     }
 
     /**
@@ -89,7 +89,7 @@ export class UIManager {
      */
     async refresh(): Promise<void> {
         await this.panel?.refresh();
-        this.sidebarView?.refresh();
+        await this.sidebarView?.refresh();
     }
 
     /**
@@ -98,6 +98,11 @@ export class UIManager {
     showPrdGenerating(): void {
         this.panel?.showPrdGenerating();
         this.sidebarView?.showPrdGenerating();
+    }
+
+    hidePrdGenerating(): void {
+        this.panel?.hidePrdGenerating?.();
+        this.sidebarView?.hidePrdGenerating?.();
     }
 
     /**

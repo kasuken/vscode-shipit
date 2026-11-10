@@ -3,7 +3,7 @@ import { ShipItStatusBar } from './statusBar';
 import { LoopOrchestrator } from './orchestrator';
 import { ShipItSidebarProvider } from './sidebarProvider';
 import { log, disposeLogger, showLogs } from './logger';
-import { getTaskStatsAsync, getNextTaskAsync, createManualPrdAsync, readProjectDescriptionAsync, createOrOpenProjectDescriptionAsync } from './fileUtils';
+import { getTaskStatsAsync, createManualPrdAsync, readProjectDescriptionAsync, createOrOpenProjectDescriptionAsync } from './fileUtils';
 
 /**
  * Main ShipIt extension class
@@ -12,6 +12,7 @@ class ShipItExtension {
     private statusBar: ShipItStatusBar;
     private orchestrator: LoopOrchestrator;
     private sidebarProvider: ShipItSidebarProvider;
+    private disposing: Promise<void> | undefined;
 
     constructor(private readonly context: vscode.ExtensionContext) {
         log('ShipIt extension activating...');
@@ -51,15 +52,15 @@ class ShipItExtension {
     private registerCommands(): void {
         this.context.subscriptions.push(
             vscode.commands.registerCommand('shipit.showPanel', () => {
-                this.showStatus();
+                return vscode.commands.executeCommand('shipit.sidebar.focus');
             }),
 
             vscode.commands.registerCommand('shipit.start', () => {
-                this.orchestrator.startLoop();
+                return this.orchestrator.startLoop();
             }),
 
             vscode.commands.registerCommand('shipit.stop', () => {
-                this.orchestrator.stopLoop();
+                return this.orchestrator.stopLoop();
             }),
 
             vscode.commands.registerCommand('shipit.pause', () => {
@@ -71,7 +72,7 @@ class ShipItExtension {
             }),
 
             vscode.commands.registerCommand('shipit.next', () => {
-                this.orchestrator.runSingleStep();
+                return this.orchestrator.runSingleStep();
             }),
 
             vscode.commands.registerCommand('shipit.generatePrd', async () => {
@@ -81,7 +82,7 @@ class ShipItExtension {
                 if (existingDescription) {
                     // File exists with content - generate PRD from it
                     vscode.window.showInformationMessage('Starting PRD generation from your project description...');
-                    this.orchestrator.generatePrdFromDescription(existingDescription);
+                    await this.orchestrator.generatePrdFromDescription(existingDescription);
                 } else {
                     // File doesn't exist or is empty - create/open it for editing
                     const created = await createOrOpenProjectDescriptionAsync();
@@ -120,37 +121,6 @@ class ShipItExtension {
     }
 
     /**
-     * Show status information
-     */
-    private async showStatus(): Promise<void> {
-        const stats = await getTaskStatsAsync();
-        const nextTask = await getNextTaskAsync();
-
-        const actions: string[] = ['Start', 'Stop', 'Generate PRD', 'View Logs'];
-
-        const message = stats.total > 0
-            ? `ShipIt: ${stats.completed}/${stats.total} tasks complete. ${nextTask ? `Next: ${nextTask.description}` : 'All done!'}`
-            : 'ShipIt: No PRD found. Generate one or create PRD.md manually.';
-
-        const action = await vscode.window.showInformationMessage(message, ...actions);
-
-        switch (action) {
-            case 'Start':
-                this.orchestrator.startLoop();
-                break;
-            case 'Stop':
-                this.orchestrator.stopLoop();
-                break;
-            case 'Generate PRD':
-                vscode.commands.executeCommand('shipit.generatePrd');
-                break;
-            case 'View Logs':
-                showLogs();
-                break;
-        }
-    }
-
-    /**
      * Check for PRD on startup and notify user
      */
     private async checkForPrdOnStartup(): Promise<void> {
@@ -172,9 +142,9 @@ class ShipItExtension {
     /**
      * Dispose resources
      */
-    dispose(): void {
-        this.orchestrator.dispose();
-        disposeLogger();
+    dispose(): Promise<void> {
+        this.disposing ??= this.orchestrator.dispose().finally(disposeLogger);
+        return this.disposing;
     }
 }
 
@@ -184,9 +154,9 @@ export function activate(context: vscode.ExtensionContext): void {
     extensionInstance = new ShipItExtension(context);
 }
 
-export function deactivate(): void {
+export async function deactivate(): Promise<void> {
     log('ShipIt extension deactivating...');
-    extensionInstance?.dispose();
+    await extensionInstance?.dispose();
     extensionInstance = null;
 }
 

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { IShipItUI, TaskCompletion, TaskStats, Task, UserStory, ModelSettings } from './types';
-import { getTaskStatsAsync, getNextTaskAsync, getAllTasksAsync, getAllUserStoriesAsync, getUserStoryStatsAsync, getPrdPath } from './fileUtils';
+import { IShipItUI, TaskCompletion, TaskStats, Task, UserStory } from './types';
+import { getTaskStatsAsync, getNextTaskAsync, getAllTasksAsync, getAllUserStoriesAsync, getPrdPath } from './fileUtils';
 import { getModelSettings, updateModelSetting } from './config';
 import { getCopilotService } from './copilotSdk';
 import { log } from './logger';
@@ -90,8 +90,9 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
                     await this._sendSettings();
                     break;
                 case 'updateModelSetting':
-                    if (data.key && data.value) {
-                        await updateModelSetting(data.key as keyof ModelSettings, data.value);
+                    if ((data.key === 'prdGeneration' || data.key === 'userStoriesGeneration' || data.key === 'taskImplementation') &&
+                        typeof data.value === 'string' && data.value.trim()) {
+                        await updateModelSetting(data.key, data.value);
                         await this._sendSettings();
                     }
                     break;
@@ -138,6 +139,10 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
             });
         } catch (error) {
             log(`Error sending settings: ${error}`);
+            this.addLog('Could not load Copilot models. Check authentication and ShipIt logs.');
+            this._view.webview.postMessage({
+                type: 'settings', modelSettings: getModelSettings(), availableModels: []
+            });
         }
     }
 
@@ -201,6 +206,11 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
 
     showPrdGenerating(): void {
         this._isPrdGenerating = true;
+        this._sendUpdate();
+    }
+
+    hidePrdGenerating(): void {
+        this._isPrdGenerating = false;
         this._sendUpdate();
     }
 
@@ -1200,7 +1210,7 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
             document.getElementById('btnStop').disabled = !isRunning && !isPaused;
             document.getElementById('btnPause').disabled = !isRunning;
             document.getElementById('btnResume').disabled = !isPaused;
-            document.getElementById('btnNext').disabled = isRunning;
+            document.getElementById('btnNext').disabled = isRunning || isPaused;
 
             // Task list
             renderTasks();
@@ -1402,6 +1412,13 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
             if (!select) return;
             
             select.innerHTML = '';
+            if (selectedValue && !models.some(model => model.id === selectedValue)) {
+                const option = document.createElement('option');
+                option.value = selectedValue;
+                option.textContent = selectedValue + ' (unavailable)';
+                option.selected = true;
+                select.appendChild(option);
+            }
             models.forEach(model => {
                 const option = document.createElement('option');
                 option.value = model.id;
@@ -1459,7 +1476,7 @@ export class ShipItSidebarProvider implements vscode.WebviewViewProvider, IShipI
                 state.status = message.status || state.status;
                 state.iteration = message.iteration || 0;
                 state.currentTask = message.currentTask || '';
-                state.activeTaskDescription = message.activeTaskDescription || state.activeTaskDescription;
+                state.activeTaskDescription = message.activeTaskDescription ?? state.activeTaskDescription;
                 state.activeUserStory = message.activeUserStory || '';
                 state.countdown = message.countdown || 0;
                 state.logs = message.logs || state.logs;

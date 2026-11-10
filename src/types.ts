@@ -155,6 +155,7 @@ export interface IShipItUI {
     setActiveUserStory?(userStoryDescription: string): void;
     addLog(message: string, highlight?: boolean): void;
     showPrdGenerating(): void;
+    hidePrdGenerating?(): void;
 }
 
 /**

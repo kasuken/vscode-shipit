@@ -9,6 +9,7 @@ export type CountdownTickCallback = (remaining: number) => void;
 export class CountdownTimer {
     private timer: ReturnType<typeof setInterval> | null = null;
     private onTick: CountdownTickCallback | null = null;
+    private resolve: (() => void) | null = null;
 
     /**
      * Start the countdown
@@ -23,6 +24,7 @@ export class CountdownTimer {
         onTick(remaining);
 
         return new Promise<void>((resolve) => {
+            this.resolve = resolve;
             this.timer = setInterval(() => {
                 remaining--;
                 this.onTick?.(remaining);
@@ -44,6 +46,9 @@ export class CountdownTimer {
             this.timer = null;
         }
         this.onTick?.(0);
+        this.onTick = null;
+        this.resolve?.();
+        this.resolve = null;
     }
 
     /**
